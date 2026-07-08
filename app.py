@@ -2412,6 +2412,69 @@ La visualizzazione dei numeri progressivi di taglio che guidano la sequenza dell
         else:
             self.selected_group_key = None
 
+    def _are_layouts_identical(self, l1, l2):
+        b1 = l1["board"]
+        b2 = l2["board"]
+        if b1.get("width") != b2.get("width") or b1.get("height") != b2.get("height"):
+            return False
+        if b1.get("thickness") != b2.get("thickness") or b1.get("color_code") != b2.get("color_code"):
+            return False
+            
+        p1 = sorted(l1.get("placed_pieces", []), key=lambda p: (p.get("x", 0), p.get("y", 0), p.get("w", 0), p.get("h", 0)))
+        p2 = sorted(l2.get("placed_pieces", []), key=lambda p: (p.get("x", 0), p.get("y", 0), p.get("w", 0), p.get("h", 0)))
+        if len(p1) != len(p2):
+            return False
+            
+        for i in range(len(p1)):
+            item1 = p1[i]
+            item2 = p2[i]
+            if item1.get("x") != item2.get("x") or item1.get("y") != item2.get("y"):
+                return False
+            if item1.get("w") != item2.get("w") or item1.get("h") != item2.get("h"):
+                return False
+            if item1.get("rotated") != item2.get("rotated") or item1.get("descrizione") != item2.get("descrizione"):
+                return False
+                
+        s1 = sorted(l1.get("new_semilavorati", []), key=lambda s: (s.get("x", 0), s.get("y", 0), s.get("width", 0), s.get("height", 0)))
+        s2 = sorted(l2.get("new_semilavorati", []), key=lambda s: (s.get("x", 0), s.get("y", 0), s.get("width", 0), s.get("height", 0)))
+        if len(s1) != len(s2):
+            return False
+        for i in range(len(s1)):
+            item1 = s1[i]
+            item2 = s2[i]
+            if item1.get("x") != item2.get("x") or item1.get("y") != item2.get("y"):
+                return False
+            if item1.get("width") != item2.get("width") or item1.get("height") != item2.get("height"):
+                return False
+                
+        c1 = sorted(l1.get("cuts", []), key=lambda c: (c.get("x1", 0), c.get("y1", 0), c.get("x2", 0), c.get("y2", 0)))
+        c2 = sorted(l2.get("cuts", []), key=lambda c: (c.get("x1", 0), c.get("y1", 0), c.get("x2", 0), c.get("y2", 0)))
+        if len(c1) != len(c2):
+            return False
+        for i in range(len(c1)):
+            item1 = c1[i]
+            item2 = c2[i]
+            if item1.get("x1") != item2.get("x1") or item1.get("y1") != item2.get("y1"):
+                return False
+            if item1.get("x2") != item2.get("x2") or item1.get("y2") != item2.get("y2"):
+                return False
+        return True
+
+    def _group_layouts(self, layout_list):
+        grouped = []
+        for lay in layout_list:
+            found = False
+            for gb in grouped:
+                if self._are_layouts_identical(gb, lay):
+                    gb["qty_multiplier"] = gb.get("qty_multiplier", 1) + 1
+                    found = True
+                    break
+            if not found:
+                lay_copy = copy.deepcopy(lay)
+                lay_copy["qty_multiplier"] = 1
+                grouped.append(lay_copy)
+        return grouped
+
     def on_group_selected(self, event):
         display_name = self.cb_groups.get()
         self.selected_group_key = self.group_display_mapping.get(display_name, display_name)
@@ -2448,9 +2511,9 @@ La visualizzazione dei numeri progressivi di taglio che guidano la sequenza dell
                 else:
                     return "pan"
                 
-            self.list_barre = [b for b in boards if board_type(b["board"]) == "bar"]
-            self.list_pannelli = [b for b in boards if board_type(b["board"]) == "pan"]
-            self.list_residui = [b for b in boards if board_type(b["board"]) == "res"]
+            self.list_barre = self._group_layouts([b for b in boards if board_type(b["board"]) == "bar"])
+            self.list_pannelli = self._group_layouts([b for b in boards if board_type(b["board"]) == "pan"])
+            self.list_residui = self._group_layouts([b for b in boards if board_type(b["board"]) == "res"])
         else:
             self.list_barre = []
             self.list_pannelli = []
@@ -2516,11 +2579,13 @@ La visualizzazione dei numeri progressivi di taglio che guidano la sequenza dell
         self.lbl_bar_counter.config(text=f"{self.selected_bar_idx + 1} / {len(self.list_barre)}")
         
         b = board_data["board"]
+        qty = board_data.get("qty_multiplier", 1)
+        qty_str = f" [x{qty} IDENTICHE]" if qty > 1 else ""
         is_virtual = (b.get("_source_type") == "barra_virtual") or (b.get("id") == "BARRA_VIRTUALE_DUMMY") or ("virtual" in str(b.get("id")).lower())
         virtual_str = " [MANCANTE - DA ACQUISTARE]" if is_virtual else ""
         color_desc = b.get("color_desc") or b.get("color_code", "")
         color_str = f" | Colore: {color_desc}" if color_desc else ""
-        details = f"{b['id']}{virtual_str}: {int(b['height'])}x{int(b['width'])}{color_str} | Efficienza: {board_data['efficiency']}%"
+        details = f"{b['id']}{qty_str}{virtual_str}: {int(b['height'])}x{int(b['width'])}{color_str} | Efficienza: {board_data['efficiency']}%"
         self.lbl_bar_details.config(text=details)
         if is_virtual:
             self.lbl_bar_details.config(foreground="#e84118")
@@ -2549,11 +2614,13 @@ La visualizzazione dei numeri progressivi di taglio che guidano la sequenza dell
         self.lbl_pan_counter.config(text=f"{self.selected_panel_idx + 1} / {len(self.list_pannelli)}")
         
         b = board_data["board"]
+        qty = board_data.get("qty_multiplier", 1)
+        qty_str = f" [x{qty} IDENTICHE]" if qty > 1 else ""
         is_virtual = (b.get("_source_type") == "pannello_virtual") or ("virtual" in str(b.get("id")).lower())
         virtual_str = " [VIRTUALE - DA PRODURRE]" if is_virtual else ""
         color_desc = b.get("color_desc") or b.get("color_code", "")
         color_str = f" | Colore: {color_desc}" if color_desc else ""
-        details = f"{b['id']}{virtual_str}: {int(b['height'])}x{int(b['width'])}{color_str} | Efficienza: {board_data['efficiency']}%"
+        details = f"{b['id']}{qty_str}{virtual_str}: {int(b['height'])}x{int(b['width'])}{color_str} | Efficienza: {board_data['efficiency']}%"
         self.lbl_pan_details.config(text=details)
         if is_virtual:
             self.lbl_pan_details.config(foreground="#487eb0")
@@ -2582,9 +2649,11 @@ La visualizzazione dei numeri progressivi di taglio che guidano la sequenza dell
         self.lbl_res_counter.config(text=f"{self.selected_residuo_idx + 1} / {len(self.list_residui)}")
         
         b = board_data["board"]
+        qty = board_data.get("qty_multiplier", 1)
+        qty_str = f" [x{qty} IDENTICHE]" if qty > 1 else ""
         color_desc = b.get("color_desc") or b.get("color_code", "")
         color_str = f" | Colore: {color_desc}" if color_desc else ""
-        details = f"{b['id']}: {int(b['height'])}x{int(b['width'])}{color_str} | Efficienza: {board_data['efficiency']}%"
+        details = f"{b['id']}{qty_str}: {int(b['height'])}x{int(b['width'])}{color_str} | Efficienza: {board_data['efficiency']}%"
         self.lbl_res_details.config(text=details)
         self.lbl_res_details.config(foreground=self.accent_light)
 

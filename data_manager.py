@@ -660,6 +660,70 @@ class DataManager:
         import time
         summary = risultati["summary_generale"]
         
+        def _are_layouts_identical(l1, l2):
+            b1 = l1["board"]
+            b2 = l2["board"]
+            if b1.get("width") != b2.get("width") or b1.get("height") != b2.get("height"):
+                return False
+            if b1.get("thickness") != b2.get("thickness") or b1.get("color_code") != b2.get("color_code"):
+                return False
+                
+            p1 = sorted(l1.get("placed_pieces", []), key=lambda p: (p.get("x", 0), p.get("y", 0), p.get("w", 0), p.get("h", 0)))
+            p2 = sorted(l2.get("placed_pieces", []), key=lambda p: (p.get("x", 0), p.get("y", 0), p.get("w", 0), p.get("h", 0)))
+            if len(p1) != len(p2):
+                return False
+                
+            for i in range(len(p1)):
+                item1 = p1[i]
+                item2 = p2[i]
+                if item1.get("x") != item2.get("x") or item1.get("y") != item2.get("y"):
+                    return False
+                if item1.get("w") != item2.get("w") or item1.get("h") != item2.get("h"):
+                    return False
+                if item1.get("rotated") != item2.get("rotated") or item1.get("descrizione") != item2.get("descrizione"):
+                    return False
+                    
+            s1 = sorted(l1.get("new_semilavorati", []), key=lambda s: (s.get("x", 0), s.get("y", 0), s.get("width", 0), s.get("height", 0)))
+            s2 = sorted(l2.get("new_semilavorati", []), key=lambda s: (s.get("x", 0), s.get("y", 0), s.get("width", 0), s.get("height", 0)))
+            if len(s1) != len(s2):
+                return False
+            for i in range(len(s1)):
+                item1 = s1[i]
+                item2 = s2[i]
+                if item1.get("x") != item2.get("x") or item1.get("y") != item2.get("y"):
+                    return False
+                if item1.get("width") != item2.get("width") or item1.get("height") != item2.get("height"):
+                    return False
+                    
+            c1 = sorted(l1.get("cuts", []), key=lambda c: (c.get("x1", 0), c.get("y1", 0), c.get("x2", 0), c.get("y2", 0)))
+            c2 = sorted(l2.get("cuts", []), key=lambda c: (c.get("x1", 0), c.get("y1", 0), c.get("x2", 0), c.get("y2", 0)))
+            if len(c1) != len(c2):
+                return False
+            for i in range(len(c1)):
+                item1 = c1[i]
+                item2 = c2[i]
+                if item1.get("x1") != item2.get("x1") or item1.get("y1") != item2.get("y1"):
+                    return False
+                if item1.get("x2") != item2.get("x2") or item1.get("y2") != item2.get("y2"):
+                    return False
+            return True
+
+        def _group_layouts(layout_list):
+            grouped = []
+            for lay in layout_list:
+                found = False
+                for gb in grouped:
+                    if _are_layouts_identical(gb["layout"], lay):
+                        gb["qty"] += 1
+                        found = True
+                        break
+                if not found:
+                    grouped.append({
+                        "layout": copy.deepcopy(lay),
+                        "qty": 1
+                    })
+            return grouped
+        
         client_name = self.config.get("client_name", "")
         client_html = ""
         if client_name:
@@ -808,8 +872,11 @@ class DataManager:
             </table>
 """)
 
-            # Schemi delle singole lastre
-            for b_idx, ub in enumerate(g["used_boards"]):
+            # Schemi delle singole lastre raggruppate
+            grouped_boards = _group_layouts(g.get("used_boards", []))
+            for b_idx, gb in enumerate(grouped_boards):
+                ub = gb["layout"]
+                qty = gb["qty"]
                 board = ub["board"]
                 bw = board["width"]
                 bh = board["height"]
@@ -823,10 +890,12 @@ class DataManager:
                 board_style = "border: 2px solid #e84118; background: #fff5f5;" if is_virtual else ""
                 virtual_badge = ' <span class="badge" style="background:#e84118;">MANCANTE - DA ACQUISTARE</span>' if is_virtual else ""
                 
+                qty_badge = f' <span class="badge" style="background:#273c75; font-size: 13px; padding: 4px 10px; margin-left: 5px;">X {qty} LASTR{"E" if qty > 1 else "A"} IDENTICH{"E" if qty > 1 else "A"}</span>' if qty > 1 else ""
+                
                 html.append(f"""
             <div class="board-container" style="{board_style}">
                 <div class="board-meta">
-                    <span>Barra {b_idx + 1}: {board.get('id', 'N/D')} - {board.get('color_desc', 'N/D')} ({int(bw)} x {int(bh)} x {board.get('thickness', '')} mm){virtual_badge}</span>
+                    <span>Layout {b_idx + 1}: {board.get('id', 'N/D')} - {board.get('color_desc', 'N/D')} ({int(bh)} x {int(bw)} x {board.get('thickness', '')} mm){qty_badge}{virtual_badge}</span>
                     <span style="color: #44bd32;">Efficienza: {efficiency}%</span>
                 </div>
                 <div>
