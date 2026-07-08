@@ -1,0 +1,16 @@
+{
+    "barre": [],
+    "semilavorati": [
+        {
+            "id": "BAR_STD_397",
+            "width": 397.0,
+            "height": 2800.0,
+            "thickness": 22.0,
+            "color_code": "TEST_COLOR",
+            "color_desc": "TEST DESC",
+            "has_grain": true,
+            "quantity": 0
+        }
+    ],
+    "commesse": []
+}

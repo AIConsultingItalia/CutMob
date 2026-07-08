@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <title>Report di Taglio CutMob</title>
+    <style>
+        body { font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif; color: #2c3e50; background-color: #f5f6fa; margin: 0; padding: 30px; }
+        .container { max-width: 1000px; margin: 0 auto; background: #ffffff; padding: 40px; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.06); }
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f2f6; padding-bottom: 20px; margin-bottom: 30px; }
+        .title h1 { margin: 0; color: #273c75; font-size: 28px; }
+        .title p { margin: 5px 0 0 0; color: #7f8c8d; font-size: 14px; }
+        .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 40px; }
+        .summary-card { background: #f8f9fa; padding: 20px; border-radius: 8px; border-left: 4px solid #487eb0; }
+        .summary-card.efficiency { border-left-color: #44bd32; }
+        .summary-card.waste { border-left-color: #e84118; }
+        .card-value { font-size: 24px; font-weight: bold; color: #2c3e50; margin-top: 5px; }
+        .card-label { font-size: 11px; text-transform: uppercase; color: #95a5a6; font-weight: bold; letter-spacing: 0.5px; }
+        .group-section { margin-bottom: 50px; }
+        .group-header { background: #273c75; color: #ffffff; padding: 12px 20px; border-radius: 6px; font-size: 18px; font-weight: bold; margin-bottom: 20px; }
+        .board-container { background: #fafafa; border: 1px solid #e1e2e6; border-radius: 8px; padding: 20px; margin-bottom: 30px; }
+        .board-meta { display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 14px; font-weight: bold; color: #34495e; }
+        .svg-wrapper { background: #ffffff; border: 1px solid #eaeaea; border-radius: 6px; padding: 10px; margin-top: 10px; }
+        table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+        th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #eef0f3; font-size: 14px; }
+        th { background: #f1f2f6; color: #2c3e50; font-weight: bold; }
+        .badge { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; color: #fff; }
+        .badge.rotated { background: #e1b12c; }
+        .badge.standard { background: #487eb0; }
+        .badge.recupero { background: #2ecc71; }
+        @media print {
+            body { background: #ffffff; padding: 0; }
+            .container { box-shadow: none; padding: 0; max-width: 100%; }
+            .board-container { page-break-inside: avoid; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="title">
+                <h1>Report di Taglio CutMob</h1>
+                <p>Generato il: 23/06/2026 15:58:18</p>
+            </div>
+        </div>
+        
+        <div class="summary-grid">
+            <div class="summary-card">
+                <div class="card-label">Area Lastre Usate</div>
+                <div class="card-value">0.90 m²</div>
+            </div>
+            <div class="summary-card efficiency">
+                <div class="card-label">Efficienza Media</div>
+                <div class="card-value">33.33%</div>
+            </div>
+            <div class="summary-card">
+                <div class="card-label">Area Pezzi Tagliati</div>
+                <div class="card-value">0.30 m²</div>
+            </div>
+            <div class="summary-card waste">
+                <div class="card-label">Area Scarto</div>
+                <div class="card-value">0.60 m²</div>
+            </div>
+        </div>
+
+
+        <div class="group-section">
+            <div class="group-header">Materiale: 18.0mm_U708 (Efficienza: 33.33%)</div>
+            
+            <h3>Riepilogo Gruppo</h3>
+            <table>
+                <tr>
+                    <th>Lastre Usate</th>
+                    <td>1</td>
+                    <th>Efficienza</th>
+                    <td>33.33%</td>
+                </tr>
+                <tr>
+                    <th>Area Totale Lastre</th>
+                    <td>0.90 m²</td>
+                    <th>Area Pezzi</th>
+                    <td>0.30 m²</td>
+                </tr>
+                <tr>
+                    <th>Area Scarto</th>
+                    <td>0.60 m²</td>
+                    <th>Pezzi non piazzati</th>
+                    <td>9</td>
+                </tr>
+            </table>
+
+
+            <h4 style="color:#e84118;">Pezzi NON Piazzati</h4>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Descrizione</th>
+                        <th>Larghezza</th>
+                        <th>Altezza</th>
+                        <th>Spessore</th>
+                        <th>Colore</th>
+                    </tr>
+                </thead>
+                <tbody>
+
+
+                    <tr>
+                        <td>Anta Grande</td>
+                        <td>600.0 mm</td>
+                        <td>720.0 mm</td>
+                        <td>18.0 mm</td>
+                        <td>Grigio (U708)</td>
+                    </tr>
+
+
+                    <tr>
+                        <td>Anta Grande</td>
+                        <td>600.0 mm</td>
+                        <td>720.0 mm</td>
+                        <td>18.0 mm</td>
+                        <td>Grigio (U708)</td>
+                    </tr>
+
+
+                    <tr>
+                        <td>Anta Grande</td>
+                        <td>600.0 mm</td>
+                        <td>720.0 mm</td>
+                        <td>18.0 mm</td>
+                        <td>Grigio (U708)</td>
+                    </tr>
+
+
+                    <tr>
+                        <td>Anta Grande</td>
+                        <td>600.0 mm</td>
+                        <td>720.0 mm</td>
+                        <td>18.0 mm</td>
+                        <td>Grigio (U708)</td>
+                    </tr>
+
+
+                    <tr>
+                        <td>Anta Piccola</td>
+                        <td>450.0 mm</td>
+                        <td>720.0 mm</td>
+                        <td>18.0 mm</td>
+                        <td>Grigio (U708)</td>
+                    </tr>
+
+
+                    <tr>
+                        <td>Anta Piccola</td>
+                        <td>450.0 mm</td>
+                        <td>720.0 mm</td>
+                        <td>18.0 mm</td>
+                        <td>Grigio (U708)</td>
+                    </tr>
+
+
+                    <tr>
+                        <td>Ripiano Grigio</td>
+                        <td>500.0 mm</td>
+                        <td>300.0 mm</td>
+                        <td>18.0 mm</td>
+                        <td>Grigio (U708)</td>
+                    </tr>
+
+
+                    <tr>
+                        <td>Ripiano Grigio</td>
+                        <td>500.0 mm</td>
+                        <td>300.0 mm</td>
+                        <td>18.0 mm</td>
+                        <td>Grigio (U708)</td>
+                    </tr>
+
+
+                    <tr>
+                        <td>Ripiano Grigio</td>
+                        <td>500.0 mm</td>
+                        <td>300.0 mm</td>
+                        <td>18.0 mm</td>
+                        <td>Grigio (U708)</td>
+                    </tr>
+
+
+                </tbody>
+            </table>
+
+
+            <div class="board-container">
+                <div class="board-meta">
+                    <span>Lastra 1: S1 (1500 x 600 x 18.0 mm)</span>
+                    <span style="color: #44bd32;">Efficienza: 33.33%</span>
+                </div>
+                <div>
+                    <strong>Pezzi posizionati:</strong> 2 | 
+                    <strong>Semilavorati recuperati:</strong> 1
+                </div>
+                <div class="svg-wrapper">
+                    <svg viewBox="0 0 1500.0 600.0" width="100%" height="auto" style="border: 1px solid #dcdde1; background-color: #f5f6fa;" xmlns="http://www.w3.org/2000/svg">
+  <rect x="0" y="0" width="1500.0" height="600.0" fill="#dcdde1" stroke="#7f8c8d" stroke-width="2" />
+  <rect x="1008.0" y="0.0" width="492.0" height="300.0" fill="#badc58" stroke="#6ab04c" stroke-width="1.5" stroke-dasharray="6,4" />
+  <text x="1254.0" y="150.0" font-family="Segoe UI, sans-serif" font-size="28" fill="#2c3e50" font-style="italic" text-anchor="middle" dominant-baseline="middle">Recupero 492x300</text>
+  <rect x="0.0" y="0.0" width="500.0" height="300.0" fill="#487eb0" stroke="#273c75" stroke-width="1.5" />
+  <text x="250.0" y="140.0" font-family="Segoe UI, sans-serif" font-weight="bold" font-size="22" fill="#ffffff" text-anchor="middle" dominant-baseline="middle">Ripiano Grigio</text>
+  <text x="250.0" y="165.0" font-family="Segoe UI, sans-serif" font-size="18" fill="#ffffff" text-anchor="middle" dominant-baseline="middle">500x300</text>
+  <rect x="504.0" y="0.0" width="500.0" height="300.0" fill="#487eb0" stroke="#273c75" stroke-width="1.5" />
+  <text x="754.0" y="140.0" font-family="Segoe UI, sans-serif" font-weight="bold" font-size="22" fill="#ffffff" text-anchor="middle" dominant-baseline="middle">Ripiano Grigio</text>
+  <text x="754.0" y="165.0" font-family="Segoe UI, sans-serif" font-size="18" fill="#ffffff" text-anchor="middle" dominant-baseline="middle">500x300</text>
+  <line x1="0.0" y1="300.0" x2="1500.0" y2="300.0" stroke="#e84118" stroke-width="2.5" stroke-dasharray="8,6" />
+  <line x1="500.0" y1="0.0" x2="500.0" y2="300.0" stroke="#e84118" stroke-width="2.5" stroke-dasharray="8,6" />
+  <line x1="1004.0" y1="0.0" x2="1004.0" y2="300.0" stroke="#e84118" stroke-width="2.5" stroke-dasharray="8,6" />
+</svg>
+                </div>
+                
+                <h5 style="margin: 15px 0 5px 0;">Elenco Tagli</h5>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Pezzo</th>
+                            <th>X (mm)</th>
+                            <th>Y (mm)</th>
+                            <th>W (mm)</th>
+                            <th>H (mm)</th>
+                            <th>Stato</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+
+
+                        <tr>
+                            <td>Ripiano Grigio</td>
+                            <td>0</td>
+                            <td>0</td>
+                            <td>500</td>
+                            <td>300</td>
+                            <td><span class="badge standard">Standard</span></td>
+                        </tr>
+
+
+                        <tr>
+                            <td>Ripiano Grigio</td>
+                            <td>504</td>
+                            <td>0</td>
+                            <td>500</td>
+                            <td>300</td>
+                            <td><span class="badge standard">Standard</span></td>
+                        </tr>
+
+
+                        <tr>
+                            <td style="color:#2ecc71; font-style:italic;">Recupero Semilavorato</td>
+                            <td>1008</td>
+                            <td>0</td>
+                            <td>492</td>
+                            <td>300</td>
+                            <td><span class="badge recupero">Semilavorato</span></td>
+                        </tr>
+
+
+                    </tbody>
+                </table>
+            </div>
+
+
+        </div>
+
+
+        <div class="group-section">
+            <div class="group-header">Materiale: 18.0mm_W1000 (Efficienza: 0.0%)</div>
+            
+            <h3>Riepilogo Gruppo</h3>
+            <table>
+                <tr>
+                    <th>Lastre Usate</th>
+                    <td>0</td>
+                    <th>Efficienza</th>
+                    <td>0.0%</td>
+                </tr>
+                <tr>
+                    <th>Area Totale Lastre</th>
+                    <td>0.00 m²</td>
+                    <th>Area Pezzi</th>
+                    <td>0.00 m²</td>
+                </tr>
+                <tr>
+                    <th>Area Scarto</th>
+                    <td>0.00 m²</td>
+                    <th>Pezzi non piazzati</th>
+                    <td>3</td>
+                </tr>
+            </table>
+
+
+            <h4 style="color:#e84118;">Pezzi NON Piazzati</h4>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Descrizione</th>
+                        <th>Larghezza</th>
+                        <th>Altezza</th>
+                        <th>Spessore</th>
+                        <th>Colore</th>
+                    </tr>
+                </thead>
+                <tbody>
+
+
+                    <tr>
+                        <td>Fianco Bianco</td>
+                        <td>1000.0 mm</td>
+                        <td>500.0 mm</td>
+                        <td>18.0 mm</td>
+                        <td>Bianco (W1000)</td>
+                    </tr>
+
+
+                    <tr>
+                        <td>Fianco Bianco</td>
+                        <td>1000.0 mm</td>
+                        <td>500.0 mm</td>
+                        <td>18.0 mm</td>
+                        <td>Bianco (W1000)</td>
+                    </tr>
+
+
+                    <tr>
+                        <td>Fianco Bianco</td>
+                        <td>1000.0 mm</td>
+                        <td>500.0 mm</td>
+                        <td>18.0 mm</td>
+                        <td>Bianco (W1000)</td>
+                    </tr>
+
+
+                </tbody>
+            </table>
+
+
+        </div>
+
+
+    </div>
+</body>
+</html>
