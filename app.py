@@ -375,6 +375,7 @@ class CutMobApp:
         
         self.tree_barre.bind("<Double-1>", self.edit_barre_dialog)
         self.tree_barre.bind("<Button-3>", lambda e: self.on_heading_right_click(e, "barre"))
+        self.tree_barre.bind("<F5>", lambda e: self.open_bulk_edit_dialog("barre"))
         
         # Configura ordinamento al clic sulle intestazioni
         for col in cols_barre:
@@ -427,6 +428,7 @@ class CutMobApp:
         
         self.tree_semi.bind("<Double-1>", self.edit_semi_dialog)
         self.tree_semi.bind("<Button-3>", lambda e: self.on_heading_right_click(e, "semilavorati"))
+        self.tree_semi.bind("<F5>", lambda e: self.open_bulk_edit_dialog("semilavorati"))
         
         # Configura ordinamento al clic sulle intestazioni
         for col in cols_semi:
@@ -543,6 +545,7 @@ class CutMobApp:
         
         self.tree_pieces.bind("<Double-1>", self.edit_piece_dialog)
         self.tree_pieces.bind("<Button-3>", lambda e: self.on_heading_right_click(e, "pezzi"))
+        self.tree_pieces.bind("<F5>", lambda e: self.open_bulk_edit_dialog("pezzi"))
         self.tree_pieces.bind("<F3>", self.toggle_pieces_green)
         self.tree_pieces.tag_configure("green_item", background="#d4edda", foreground="#155724")
         
@@ -3682,13 +3685,13 @@ La visualizzazione dei numeri progressivi di taglio che guidano la sequenza dell
         
         # Form
         fields = [
-            ("ID Barra (es. B2):", "ent_id", current_item["id"] if is_edit else "B2"),
-            ("Larghezza (mm):", "ent_w", str(current_item["width"]) if is_edit else "2800"),
-            ("Altezza (mm) ↕ (Senso Venatura):", "ent_h", str(current_item["height"]) if is_edit else "2070"),
-            ("Spessore (mm):", "ent_t", str(current_item["thickness"]) if is_edit else "18.0"),
-            ("Cod. Colore (es. U708):", "ent_cc", current_item["color_code"] if is_edit else "U708"),
-            ("Desc. Colore (es. Grigio):", "ent_cd", current_item["color_desc"] if is_edit else "Grigio"),
-            ("Quantità:", "ent_q", str(current_item.get("quantity", 1)) if is_edit else "1")
+            ("ID Barra (es. B2):", "ent_id", current_item["id"] if is_edit else ""),
+            ("Larghezza (mm):", "ent_w", str(current_item["width"]) if is_edit else ""),
+            ("Altezza (mm) ↕ (Senso Venatura):", "ent_h", str(current_item["height"]) if is_edit else ""),
+            ("Spessore (mm):", "ent_t", str(current_item["thickness"]) if is_edit else ""),
+            ("Cod. Colore (es. U708):", "ent_cc", current_item["color_code"] if is_edit else ""),
+            ("Desc. Colore (es. Grigio):", "ent_cd", current_item["color_desc"] if is_edit else ""),
+            ("Quantità:", "ent_q", str(current_item.get("quantity", 1)) if is_edit else "")
         ]
         
         entries = {}
@@ -3786,13 +3789,13 @@ La visualizzazione dei numeri progressivi di taglio che guidano la sequenza dell
         current_item = semis[edit_index] if is_edit else None
         
         fields = [
-            ("ID Pezzo (es. S2):", "ent_id", current_item["id"] if is_edit else "S2"),
-            ("Larghezza (mm):", "ent_w", str(current_item["width"]) if is_edit else "1500"),
-            ("Altezza (mm) ↕ (Senso Venatura):", "ent_h", str(current_item["height"]) if is_edit else "600"),
-            ("Spessore (mm):", "ent_t", str(current_item["thickness"]) if is_edit else "18.0"),
-            ("Cod. Colore (es. U708):", "ent_cc", current_item["color_code"] if is_edit else "U708"),
-            ("Desc. Colore (es. Grigio):", "ent_cd", current_item["color_desc"] if is_edit else "Grigio"),
-            ("Quantità:", "ent_q", str(current_item.get("quantity", 1)) if is_edit else "1")
+            ("ID Pezzo (es. S2):", "ent_id", current_item["id"] if is_edit else ""),
+            ("Larghezza (mm):", "ent_w", str(current_item["width"]) if is_edit else ""),
+            ("Altezza (mm) ↕ (Senso Venatura):", "ent_h", str(current_item["height"]) if is_edit else ""),
+            ("Spessore (mm):", "ent_t", str(current_item["thickness"]) if is_edit else ""),
+            ("Cod. Colore (es. U708):", "ent_cc", current_item["color_code"] if is_edit else ""),
+            ("Desc. Colore (es. Grigio):", "ent_cd", current_item["color_desc"] if is_edit else ""),
+            ("Quantità:", "ent_q", str(current_item.get("quantity", 1)) if is_edit else "")
         ]
         
         entries = {}
@@ -3889,13 +3892,13 @@ La visualizzazione dei numeri progressivi di taglio che guidano la sequenza dell
         current_item = self.current_order[edit_index] if is_edit else None
         
         fields = [
-            ("Descrizione Pezzo (es. Fianco DX):", "ent_desc", current_item["descrizione"] if is_edit else "Fianco DX"),
-            ("Larghezza (mm):", "ent_w", str(current_item["width"]) if is_edit else "600"),
-            ("Altezza (mm) ↕ (Senso Venatura):", "ent_h", str(current_item["height"]) if is_edit else "720"),
-            ("Spessore (mm):", "ent_t", str(current_item["thickness"]) if is_edit else "18.0"),
-            ("Cod. Colore (es. U708):", "ent_cc", current_item["color_code"] if is_edit else "U708"),
-            ("Desc. Colore (es. Grigio):", "ent_cd", current_item["color_desc"] if is_edit else "Grigio"),
-            ("Quantità:", "ent_q", str(current_item.get("quantity", 1)) if is_edit else "1")
+            ("Descrizione Pezzo (es. Fianco DX):", "ent_desc", current_item["descrizione"] if is_edit else ""),
+            ("Larghezza (mm):", "ent_w", str(current_item["width"]) if is_edit else ""),
+            ("Altezza (mm) ↕ (Senso Venatura):", "ent_h", str(current_item["height"]) if is_edit else ""),
+            ("Spessore (mm):", "ent_t", str(current_item["thickness"]) if is_edit else ""),
+            ("Cod. Colore (es. U708):", "ent_cc", current_item["color_code"] if is_edit else ""),
+            ("Desc. Colore (es. Grigio):", "ent_cd", current_item["color_desc"] if is_edit else ""),
+            ("Quantità:", "ent_q", str(current_item.get("quantity", 1)) if is_edit else "")
         ]
         
         entries = {}
@@ -3942,6 +3945,317 @@ La visualizzazione dei numeri progressivi di taglio che guidano la sequenza dell
             
         btn_text = "Salva Modifiche" if is_edit else "Aggiungi all'Ordine"
         ttk.Button(dialog, text=btn_text, command=save).pack(fill=tk.X, padx=15, pady=15)
+
+    def open_bulk_edit_dialog(self, source_type):
+        if source_type == "pezzi" and getattr(self, "current_commessa_status", "Aperta") == "Chiusa":
+            messagebox.showerror("Errore", "La commessa corrente è CHIUSA e non può essere modificata.")
+            return
+
+        # Rileva gli elementi selezionati
+        if source_type == "barre":
+            selected = self.tree_barre.selection()
+            if not selected:
+                messagebox.showwarning("Nessuna selezione", "Seleziona almeno un pannello da duplicare/modificare in serie.")
+                return
+            items = []
+            all_db_items = self.data_manager.get_barre()
+            for sel in selected:
+                item_id = self.tree_barre.item(sel, "values")[0]
+                for b in all_db_items:
+                    if b["id"] == item_id:
+                        items.append(copy.deepcopy(b))
+                        break
+        elif source_type == "semilavorati":
+            selected = self.tree_semi.selection()
+            if not selected:
+                messagebox.showwarning("Nessuna selezione", "Seleziona almeno un semilavorato da duplicare/modificare in serie.")
+                return
+            items = []
+            all_db_items = self.data_manager.get_semilavorati()
+            for sel in selected:
+                item_id = self.tree_semi.item(sel, "values")[0]
+                for s in all_db_items:
+                    if s["id"] == item_id:
+                        items.append(copy.deepcopy(s))
+                        break
+        elif source_type == "pezzi":
+            selected = self.tree_pieces.selection()
+            if not selected:
+                messagebox.showwarning("Nessuna selezione", "Seleziona almeno un pezzo da duplicare/modificare in serie.")
+                return
+            items = []
+            for sel in selected:
+                vals = self.tree_pieces.item(sel, "values")
+                item_idx = int(vals[0]) - 1
+                if 0 <= item_idx < len(self.current_order):
+                    items.append(copy.deepcopy(self.current_order[item_idx]))
+        else:
+            return
+
+        # Crea finestra di dialogo
+        dialog = tk.Toplevel(self.root)
+        dialog.title(f"Duplicazione / Modifica in Serie - {source_type.capitalize()}")
+        dialog.geometry("920x450")
+        dialog.grab_set()
+
+        # Canvas e Scrollbar per supportare molte righe
+        main_frame = tk.Frame(dialog, bg="#f5f6fa")
+        main_frame.pack(fill=tk.BOTH, expand=True)
+
+        canvas = tk.Canvas(main_frame, bg="#f5f6fa", highlightthickness=0)
+        scrollbar = ttk.Scrollbar(main_frame, orient=tk.VERTICAL, command=canvas.yview)
+        scrollable_frame = tk.Frame(canvas, bg="#f5f6fa")
+
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(
+                scrollregion=canvas.bbox("all")
+            )
+        )
+
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        # Griglia intestazioni
+        headers = []
+        if source_type in ("barre", "semilavorati"):
+            headers = [
+                ("ID (Univoco)", 100),
+                ("Larghezza (W mm)", 100),
+                ("Altezza (H mm)", 100),
+                ("Spessore (mm)", 90),
+                ("Cod. Colore", 90),
+                ("Desc. Colore", 180),
+                ("Venatura (S/N)", 90),
+                ("Quantità", 80)
+            ]
+        else: # pezzi
+            headers = [
+                ("Descrizione Pezzo", 180),
+                ("Larghezza (W mm)", 100),
+                ("Altezza (H mm)", 100),
+                ("Spessore (mm)", 90),
+                ("Cod. Colore", 90),
+                ("Desc. Colore", 180),
+                ("Quantità", 80)
+            ]
+
+        # Disegna intestazioni
+        for col_idx, (header_text, width) in enumerate(headers):
+            lbl = tk.Label(scrollable_frame, text=header_text, font=("Segoe UI", 9, "bold"),
+                           bg="#273c75", fg="white", bd=1, relief=tk.RIDGE, width=int(width/8))
+            lbl.grid(row=0, column=col_idx, sticky="ew", padx=1, pady=1)
+
+        # Disegna righe con valori modificabili
+        row_entries = [] # lista di dizionari che collegano gli Entry della riga
+        for row_idx, item in enumerate(items, start=1):
+            row_widgets = {}
+            
+            if source_type in ("barre", "semilavorati"):
+                # ID
+                ent_id = ttk.Entry(scrollable_frame, width=12)
+                ent_id.insert(0, item["id"])
+                ent_id.grid(row=row_idx, column=0, padx=1, pady=1)
+                row_widgets["id"] = ent_id
+                
+                # W
+                ent_w = ttk.Entry(scrollable_frame, width=12)
+                ent_w.insert(0, str(item["width"]))
+                ent_w.grid(row=row_idx, column=1, padx=1, pady=1)
+                row_widgets["width"] = ent_w
+                
+                # H
+                ent_h = ttk.Entry(scrollable_frame, width=12)
+                ent_h.insert(0, str(item["height"]))
+                ent_h.grid(row=row_idx, column=2, padx=1, pady=1)
+                row_widgets["height"] = ent_h
+                
+                # T
+                ent_t = ttk.Entry(scrollable_frame, width=11)
+                ent_t.insert(0, str(item["thickness"]))
+                ent_t.grid(row=row_idx, column=3, padx=1, pady=1)
+                row_widgets["thickness"] = ent_t
+                
+                # CC
+                ent_cc = ttk.Entry(scrollable_frame, width=11)
+                ent_cc.insert(0, item["color_code"])
+                ent_cc.grid(row=row_idx, column=4, padx=1, pady=1)
+                row_widgets["color_code"] = ent_cc
+                
+                # CD
+                ent_cd = ttk.Entry(scrollable_frame, width=22)
+                ent_cd.insert(0, item["color_desc"])
+                ent_cd.grid(row=row_idx, column=5, padx=1, pady=1)
+                row_widgets["color_desc"] = ent_cd
+                
+                # Has Grain
+                cb_grain = ttk.Combobox(scrollable_frame, values=["Sì", "No"], width=8, state="readonly")
+                cb_grain.set("Sì" if item.get("has_grain", False) else "No")
+                cb_grain.grid(row=row_idx, column=6, padx=1, pady=1)
+                row_widgets["has_grain"] = cb_grain
+                
+                # Q
+                ent_q = ttk.Entry(scrollable_frame, width=10)
+                ent_q.insert(0, str(item.get("quantity", 1)))
+                ent_q.grid(row=row_idx, column=7, padx=1, pady=1)
+                row_widgets["quantity"] = ent_q
+                
+            else: # pezzi
+                # Descrizione
+                ent_desc = ttk.Entry(scrollable_frame, width=22)
+                ent_desc.insert(0, item["descrizione"])
+                ent_desc.grid(row=row_idx, column=0, padx=1, pady=1)
+                row_widgets["descrizione"] = ent_desc
+                
+                # W
+                ent_w = ttk.Entry(scrollable_frame, width=12)
+                ent_w.insert(0, str(item["width"]))
+                ent_w.grid(row=row_idx, column=1, padx=1, pady=1)
+                row_widgets["width"] = ent_w
+                
+                # H
+                ent_h = ttk.Entry(scrollable_frame, width=12)
+                ent_h.insert(0, str(item["height"]))
+                ent_h.grid(row=row_idx, column=2, padx=1, pady=1)
+                row_widgets["height"] = ent_h
+                
+                # T
+                ent_t = ttk.Entry(scrollable_frame, width=11)
+                ent_t.insert(0, str(item["thickness"]))
+                ent_t.grid(row=row_idx, column=3, padx=1, pady=1)
+                row_widgets["thickness"] = ent_t
+                
+                # CC
+                ent_cc = ttk.Entry(scrollable_frame, width=11)
+                ent_cc.insert(0, item["color_code"])
+                ent_cc.grid(row=row_idx, column=4, padx=1, pady=1)
+                row_widgets["color_code"] = ent_cc
+                
+                # CD
+                ent_cd = ttk.Entry(scrollable_frame, width=22)
+                ent_cd.insert(0, item["color_desc"])
+                ent_cd.grid(row=row_idx, column=5, padx=1, pady=1)
+                row_widgets["color_desc"] = ent_cd
+                
+                # Q
+                ent_q = ttk.Entry(scrollable_frame, width=10)
+                ent_q.insert(0, str(item.get("quantity", 1)))
+                ent_q.grid(row=row_idx, column=6, padx=1, pady=1)
+                row_widgets["quantity"] = ent_q
+                
+            row_entries.append(row_widgets)
+
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=10, pady=10)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y, pady=10)
+
+        # Frame per i pulsanti a fondo maschera
+        btn_frame = tk.Frame(dialog, bg="#f5f6fa", pady=10)
+        btn_frame.pack(fill=tk.X, side=tk.BOTTOM)
+
+        lbl_shortcut = tk.Label(btn_frame, text="Premi F5 per confermare e inserire", font=("Segoe UI", 9, "italic"), bg="#f5f6fa", fg="#7f8c8d")
+        lbl_shortcut.pack(side=tk.LEFT, padx=20)
+
+        def do_save():
+            # Carica dati attuali per controlli di univocità
+            self.data_manager.db = self.data_manager.load_db()
+            existing_barre = self.data_manager.get_barre()
+            existing_semis = self.data_manager.get_semilavorati()
+            
+            new_records = []
+            
+            # Per controllare univocità anche tra le righe nuove stesse
+            used_ids_in_batch = set()
+            
+            for idx, r_widgets in enumerate(row_entries):
+                try:
+                    if source_type in ("barre", "semilavorati"):
+                        item_id = r_widgets["id"].get().strip()
+                        w = float(r_widgets["width"].get().replace(",", "."))
+                        h = float(r_widgets["height"].get().replace(",", "."))
+                        t = float(r_widgets["thickness"].get().replace(",", "."))
+                        cc = r_widgets["color_code"].get().strip()
+                        cd = r_widgets["color_desc"].get().strip()
+                        has_grain = (r_widgets["has_grain"].get() == "Sì")
+                        q = int(r_widgets["quantity"].get())
+                        
+                        if not item_id or w <= 0 or h <= 0 or t <= 0 or not cc or q <= 0:
+                            raise ValueError("Campi obbligatori non validi.")
+                            
+                        # Controllo univocità chiave
+                        if item_id in used_ids_in_batch:
+                            messagebox.showerror("Errore Duplicato", f"Riga {idx+1}: L'ID '{item_id}' è duplicato all'interno di questa stessa maschera.")
+                            return
+                        used_ids_in_batch.add(item_id)
+                        
+                        if source_type == "barre":
+                            if any(b["id"] == item_id for b in existing_barre):
+                                messagebox.showerror("Errore ID", f"Riga {idx+1}: L'ID '{item_id}' è già presente nel database (Pannelli Standard).")
+                                return
+                        else:
+                            if any(s["id"] == item_id for s in existing_semis):
+                                messagebox.showerror("Errore ID", f"Riga {idx+1}: L'ID '{item_id}' è già presente nel database (Semilavorati).")
+                                return
+                                
+                        new_records.append({
+                            "id": item_id,
+                            "width": w,
+                            "height": h,
+                            "thickness": t,
+                            "color_code": cc,
+                            "color_desc": cd,
+                            "has_grain": has_grain,
+                            "quantity": q
+                        })
+                    else: # pezzi
+                        desc = r_widgets["descrizione"].get().strip()
+                        w = float(r_widgets["width"].get().replace(",", "."))
+                        h = float(r_widgets["height"].get().replace(",", "."))
+                        t = float(r_widgets["thickness"].get().replace(",", "."))
+                        cc = r_widgets["color_code"].get().strip()
+                        cd = r_widgets["color_desc"].get().strip()
+                        q = int(r_widgets["quantity"].get())
+                        
+                        if not desc or w <= 0 or h <= 0 or t <= 0 or not cc or q <= 0:
+                            raise ValueError()
+                            
+                        new_records.append({
+                            "descrizione": desc,
+                            "width": w,
+                            "height": h,
+                            "thickness": t,
+                            "color_code": cc,
+                            "color_desc": cd,
+                            "quantity": q
+                        })
+                except ValueError:
+                    messagebox.showerror("Dati non validi", f"Errore alla riga {idx+1}: verifica che le dimensioni e le quantità siano numeriche e maggiori di zero.")
+                    return
+
+            # Esegui l'inserimento effettivo
+            if source_type == "barre":
+                all_items = existing_barre + new_records
+                self.data_manager.set_barre(all_items)
+                self.reload_magazzino_tables()
+            elif source_type == "semilavorati":
+                all_items = existing_semis + new_records
+                self.data_manager.set_semilavorati(all_items)
+                self.reload_magazzino_tables()
+            elif source_type == "pezzi":
+                self.current_order.extend(new_records)
+                self.reload_order_table()
+                
+            dialog.destroy()
+            messagebox.showinfo("Successo", f"Inseriti con successo {len(new_records)} record.")
+
+        # Associa il tasto F5 alla maschera
+        dialog.bind("<F5>", lambda e: do_save())
+
+        # Pulsante di salvataggio/conferma
+        btn_save = ttk.Button(btn_frame, text="Inserisci Record (F5)", style="Accent.TButton", command=do_save)
+        btn_save.pack(side=tk.RIGHT, padx=20)
+
+        btn_cancel = ttk.Button(btn_frame, text="Annulla", command=dialog.destroy)
+        btn_cancel.pack(side=tk.RIGHT)
 
     def _sort_treeview_column(self, tree, col, reverse):
         # Ottiene gli elementi correnti del treeview

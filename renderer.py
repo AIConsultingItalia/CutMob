@@ -130,7 +130,7 @@ class LayoutRenderer:
         # Etichetta dimensioni pannello
         color_desc = board.get("color_desc", "")
         color_suffix = f" - {color_desc}" if color_desc else ""
-        label_text = f"Lastra: {int(bw)} x {int(bh)} mm{color_suffix}"
+        label_text = f"Lastra: {int(bh)} x {int(bw)} mm{color_suffix}"
         if is_virtual:
             label_text += " [MANCANTE - DA ACQUISTARE]"
             text_color = "#e84118"
