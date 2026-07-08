@@ -1076,238 +1076,118 @@ class CutMobApp:
         # Definizione tag di stile
         txt_manual.tag_configure("header1", font=("Segoe UI", 14, "bold"), foreground=self.accent_color, spacing1=10, spacing3=5)
         txt_manual.tag_configure("header2", font=("Segoe UI", 12, "bold"), foreground=self.accent_light, spacing1=8, spacing3=3)
-        txt_manual.tag_configure("bullet", font=("Segoe UI", 10), lmargin1=20, lmargin2=30)
-        
-        manual_text = r"""CUTMOB - MANUALE D'USO E ISTRUZIONI
+        manual_text = r"""CUTMOB - MANUALE D'USO E GUIDA OPERATIVA
 =========================================
 
-Benvenuto in CutMob, l'ottimizzatore professionale di taglio bidimensionale per pannelli. Questo programma ti consente di ottimizzare la disposizione dei tagli per ridurre lo scarto di materiale, gestire il magazzino e calcolare il fabbisogno di commessa.
+Benvenuto in CutMob, l'ottimizzatore professionale di taglio bidimensionale per pannelli e barre. Questo manuale funge sia da riferimento tecnico che da guida operativa passo-passo per assisterti in tutte le fasi di lavorazione.
 
 Scorciatoie Rapide Globali:
-• Premi [F1] in qualunque momento per aprire questo manuale d'uso.
-• Premi [F4] in qualunque momento per attivare/disattivare la visualizzazione del progressivo di taglio sul disegno e nei report stampati.
-• Premi [F5] su righe selezionate per duplicare/modificare in serie.
+• [F1] : Apre questo manuale d'uso in qualunque momento.
+• [F3] : Attiva/Disattiva la selezione parziale (colore verde) sulle righe dei pezzi selezionati.
+• [F4] : Mostra/Nascondi il numero progressivo di taglio sullo schema grafico e sui report.
+• [F5] : Apre la griglia stile Excel per duplicare e modificare in serie i record selezionati.
+• [Tasto dx mouse] : Consente di cercare e filtrare i dati cliccando sulle intestazioni delle tabelle.
 
-1. TIPOLOGIE DI MATERIALI IN MAGAZZINO
+=========================================
+GUIDA OPERATIVA PASSO-PASSO
+=========================================
+
+FASE 1: INSTALLAZIONE E AGGIORNAMENTO
 ---------------------------------------
-In CutMob i materiali da tagliare sono divisi in tre categorie distinte, ciascuna con logiche di priorità differenti:
-• 🪵 Pannelli Standard: I pannelli grezzi vergini interi acquistati dal fornitore (es. 2800x2070 mm). Rappresentano la fonte primaria di approvvigionamento.
-• 📁 Barre Semilavorate: Semilavorati pre-tagliati ad altezza prodotto finito ma di larghezza intera (es. 2800x720 mm). Vengono ritagliati per ricavare ante e ripiani.
-• ♻️ Residui di Taglio: Pezzi di recupero riutilizzabili ottenuti da lavorazioni passate (hanno ID che inizia con "S_REC_"). Vengono tracciati per essere consumati il prima possibile.
+L'installazione e gli aggiornamenti di CutMob sono gestiti in modo centralizzato dall'installer unico "Setup_CutMob.exe".
+1. Posizionamento: Il programma deve essere installato e risiedere sempre nel percorso fisso "C:\CutMob".
+2. Nuova Installazione: Se esegui il setup su un nuovo computer, l'installer creerà la struttura delle cartelle ("C:\CutMob\DbDati", "C:\CutMob\Report\HTML", "C:\CutMob\Report\PDF") e inizializzerà un database vuoto. Al primo avvio ti verrà richiesta la chiave di attivazione licenza.
+3. Aggiornamento Software: Se l'installer rileva una chiave di licenza attiva in "C:\CutMob\DbDati\licenza.key", procederà in modalità "Solo Aggiornamento". Aggiornerà i file eseguibili del programma ma preserverà intatti i tuoi dati storici, database delle commesse e file di configurazione personali.
+4. Attivazione Licenza: Incolla il codice di licenza ricevuto nell'apposita schermata di attivazione all'avvio. La licenza è legata ai dati cliente ("Ragione Sociale" e "Partita IVA/C.F.") configurati nelle impostazioni di sistema.
 
-2. SELEZIONE DEL MAGAZZINO (Sidebar Sinistra)
+FASE 2: CONFIGURAZIONE E PARAMETRI MACCHINA
 ---------------------------------------------
-All'interno della casella "Usa magazzino:" puoi spuntare liberamente quali materiali considerare per il calcolo:
-• Residuo (♻️): Se selezionato, consuma i residui reali presenti in magazzino. I residui vengono caricati in ottimizzazione SOLO se sono idonei a produrre almeno uno dei pezzi ordinati (per materiale, dimensioni e vincoli di altezza standard).
-• Barra (📁): Se selezionato, consuma le barre reali presenti in magazzino.
-• Pannello (🪵): Se selezionato, consuma i pannelli standard reali presenti in magazzino.
-La disattivazione di una spunta esclude quel tipo di materiale dal calcolo, tranne in caso di auto-attivazione d'emergenza (vedi Sezione 6).
+Prima di procedere ai tagli, assicurati di configurare correttamente i parametri macchina:
+1. Accedi alle Impostazioni: Clicca sul pulsante con l'ingranaggio (⚙️) in alto a destra. L'accesso è protetto da password amministratore per prevenire modifiche accidentali da parte degli operatori.
+2. Parametri di Taglio: Imposta il "Kerf" (spessore lama della sezionatrice, es. 5 mm), i "Rifili" (margini asportati dai quattro lati del pannello prima dell'ottimizzazione) e lo "Sfrido" (tollerranza aggiunta ad ogni pezzo, applicata solo sui pannelli grandi interii).
+3. Selezione Macchina:
+   - "Sezionatrice": Ottimizza i tagli in modo continuo da un lato all'altro della lastra (tagli a ghigliottina, indicati per squadratrici o sezionatrici orizzontali/verticali).
+   - "Pantografo": Esegue nesting libero tramite algoritmo MaxRects, ottimizzando il posizionamento senza vincoli di taglio passante (ideale per centri di lavoro CNC con piano aspirante).
+4. Dati Aziendali: Configura l'intestazione cliente e la mail che verranno stampate nei report.
 
-3. GESTIONE E TAGLIO DELLE BARRE (REGOLE DI ASSOCIAZIONE)
------------------------------------------------------------
-Le barre semilavorate standard sono pre-bordate sui due lati lunghi destro e sinistro. Pertanto, la loro larghezza (W) rappresenta l'altezza standard delle ante che vengono prodotte.
+FASE 3: GESTIONE DEL MAGAZZINO E CARICAMENTO CODICI
+-----------------------------------------------------
+Per poter calcolare le commesse, devi caricare i formati di magazzino disponibili:
+1. Formati e Tabelle: Nella scheda "Magazzino (Stock)" sono presenti due tabelle distinte:
+   - "Pannelli Standard (Barre Vergini)": Le lastre grezze di fornitura (es. 2800x2070 mm).
+   - "Barre / Semilavorati (Pezzi Riutilizzabili)": I semilavorati pre-tagliati ad altezza finita (es. 2800x720 mm) o residui di lavorazioni passate (contrassegnati da ID "S_REC_").
+2. Inserimento Manuale: Clicca su "Aggiungi Pannello" o "Aggiungi Semilavorato". Nota che la maschera di inserimento si aprirà completamente vuota senza valori predefiniti per garantirti un caricamento pulito e privo di vecchi residui.
+3. Controllo ID Duplicati: All'atto del salvataggio, il sistema verifica che il codice ID inserito sia univoco nel database, impedendo la creazione di doppioni.
+4. Importazione Massiva CSV: Puoi importare interi elenchi di magazzino tramite file CSV. Facendo clic su "Importa CSV", la finestra si aprirà direttamente nelle cartelle predefinite di rete ("C:\Report\Pannelli" per pannelli e "C:\Report\Barre" per semilavorati).
 
-• REGOLA FONDAMENTALE: Nel calcolo delle barre, COMANDA SEMPRE LA LARGHEZZA (W) dell'elemento da produrre.
-• ASSOCIAZIONE STANDARD: Se si produce un'anta larga 597, l'algoritmo preleva la barra standard di larghezza 597 (e lunghezza 2800).
-• BLOCCO ROTAZIONE SULLE BARRE: La rotazione is completamente disabilitata per tutti i tagli effettuati su barre standard (semilavorato_bar) e sui relativi residui (remnant), indipendentemente dal flag Venatura. Questo garantisce che la larghezza dell'anta (es. 597) rimanga sempre allineata alla larghezza della barra specifica (es. 597), escludendo lavorazioni su barre di categorie superiori (es. 747) a tinta unita.
-• VINCOLO ALTEZZE STANDARD: L'ottimizzatore estrae dinamicamente le altezze standard note del materiale ed evita tassativamente di inserire pezzi in barre appartenenti a standard superiori (es. un pezzo con larghezza 397 non verrà mai posizionato su una barra da 747, a meno che non manchino barre da 397 o 597 e si operi in regime di deficit).
-• IDENTIFICAZIONE RESIDUI DI BARRA: I residui generati dal taglio di barre registrano l'altezza standard originaria all'interno del proprio ID (es. "S_REC_H717_...") e vengono orientati automaticamente all'avvio del calcolo per ricevere pezzi compatibili in modo trasparente.
-• VISUALIZZAZIONE VERTICALE: Per agevolare l'operatore in officina, la barra viene disegnata a schermo e nei report con il LATO PIÙ LUNGO IN VERTICALE (asse Y = 2800 mm, asse X = standard es. 897 mm). I tagli di sbozzatura/altezza sono orizzontali, mentre i tagli di riduzione sono verticali.
+FASE 4: COMPILAZIONE DELLA COMMESSA (ORDINE DI TAGLIO)
+--------------------------------------------------------
+Nella scheda "Commessa / Ordine" prepari la distinta dei pezzi da produrre:
+1. Gestione Commessa: Puoi creare una "Nuova" commessa, salvarla nel database interno ("Salva"), o cancellarla ("Elimina"). 
+2. Stato Commessa: Una commessa può essere impostata su "Chiusa". Se chiusa, viene congelata: non potrai più modificarne i pezzi, importare CSV o avviare ottimizzazioni, garantendo la tracciabilità delle lavorazioni già spedite.
+3. Inserimento Pezzi: Aggiungi i pezzi da tagliare specificando Descrizione, Larghezza, Altezza, Spessore, Codice Colore e Quantità. Puoi inserire i dati a mano (form pulito), importarli tramite CSV (la cartella di partenza predefinita è "C:\Report\Elem_Cutmob") o duplicarli.
+4. Selezione Parziale (F3): Se vuoi tagliare solo una parte della commessa, seleziona le righe interessate e premi [F3] per evidenziarle in verde. I calcoli e l'ottimizzazione verranno eseguiti solo su queste righe.
 
-4. ESEMPI PRATICI DI TAGLIO BARRE
-----------------------------------
-Ecco come il sistema risolve i vari scenari di produzione delle ante:
+FASE 5: DUPLICAZIONE E MODIFICA MASSIVA (TASTO F5)
+----------------------------------------------------
+Se hai necessità di duplicare o modificare rapidamente più righe contemporaneamente nelle tabelle dei Pannelli, dei Semilavorati o dei Pezzi dell'Ordine:
+1. Selezione: Seleziona una o più righe tenendo premuto Ctrl o Shift.
+2. Apertura Griglia (F5): Premi il tasto [F5]. Si aprirà una finestra di dialogo contenente una griglia stile foglio Excel con i dati delle righe selezionate.
+3. Ridimensionamento Dinamico: Se le celle sono troppo strette, allarga la finestra trascinando i bordi laterali: tutte le colonne di input si espanderanno automaticamente in larghezza per garantire la massima leggibilità.
+4. Modifica e Inserimento: Effettua le modifiche desiderate (es. cambia i codici, le quantità o le misure).
+5. Conferma (F5): Premi nuovamente [F5] o clicca su "Inserisci Record (F5)". Il sistema validerà i campi, controllerà che non ci siano ID duplicati nel database e inserirà in blocco i nuovi record duplicati, aggiornando le tabelle di partenza.
 
-• SCENARIO 1: Produzione di 4 ante standard di Larghezza 597 e Altezza 897.
-  - Azione: Viene prelevata la barra larga 597 (lunghezza 2800).
-  - Risultato: Poiché la larghezza dell'anta (597) coincide esattamente con quella della barra (597), non è necessario alcun taglio verticale di riduzione (nessun rifilo). Vengono eseguiti solo 3 tagli orizzontali ad altezza 897 (più il consumo di lama). 3 ante vengono estratte dalla prima barra, la quarta anta da una seconda barra.
+FASE 6: ELABORAZIONE E OTTIMIZZAZIONE DEL TAGLIO
+--------------------------------------------------
+1. Impostazione Filtri Magazzino: Nella sidebar sinistra seleziona quali materiali considerare per il calcolo ("Residuo ♻️", "Barra 📁", "Pannello 🪵").
+2. Esecuzione: Clicca su "Calcola Fabbisogno" nella scheda Commessa. Un indicatore grafico di caricamento ("Elaborazione in corso...") disabiliterà temporaneamente lo schermo per evitare interferenze durante l'elaborazione degli algoritmi di nesting.
+3. Logiche di Consumo ed Emergenza: L'ottimizzatore consuma prioritariamente i residui idonei, poi le barre semilavorate ed infine i pannelli standard interi. Se un pezzo è troppo grande per le barre abilitate, il sistema attiva automaticamente i pannelli grezzi per quel specifico colore per non bloccare la produzione.
+4. Doppio Passaggio (Pannelli Virtuali): Se mancano barre semilavorate a magazzino, il sistema calcolerà quante barre "virtuali" servono e genererà un primo piano di taglio contrassegnato con "[PER PANNELLI]" per ricavare tali barre partendo dai pannelli standard interi.
 
-• SCENARIO 2: Produzione di ante fuori misura in larghezza, es. 560 (larghezza W) x 897 (altezza H).
-  - Azione: Viene prelevata la barra standard da 597.
-  - Risultato: Viene eseguito un primo taglio verticale lungo tutta la barra a X=560 mm per ridurre la larghezza da 597 a 560. Successivamente viene fatto il taglio orizzontale a Y=897 mm per ottenere l'anta finita.
-
-• SCENARIO 3: Produzione di ante fuori misura in altezza, es. 920 (larghezza W) x 597 (altezza H).
-  - Azione: Poiché la larghezza dell'anta (920) supera la barra da 897, viene presa la barra superiore da 1197.
-  - Risultato: Viene eseguito un taglio orizzontale per ricavare la lunghezza a Y=597 mm. Sull'elemento ottenuto viene poi fatto un taglio verticale di riduzione a X=920 mm (per portarlo da 1197 a 920).
-
-• SCENARIO 4: Vincolo di non-miscelazione su barre e residui (Ha venatura / Pre-bordatura).
-  - Regola: Se si ha un residuo o una barra da 897 e si deve produrre un'anta da 297, il sistema NON taglierà l'anta da 297 dal residuo/barra da 897. Il residuo di 897 rimarrà integro a magazzino e verrà prelevata la barra corretta da 297. Questo evita di asportare il bordo pre-applicato.
-
-5. PARAMETRO SFRIDO (DOVE VIENE CALCOLATO)
--------------------------------------------
-Il parametro "Sfrido" (impostato nella sidebar sinistra, es. 10 mm) è un margine di tolleranza che viene aggiunto alle dimensioni (larghezza e altezza) di ogni pezzo ordinato per consentire una rifilatura finale.
-• 🪵 APPLICATO SOLO SUI PANNELLI: Lo sfrido viene calcolato ed aggiunto UNICAMENTE quando i pezzi vengono tagliati a partire da Pannelli Standard grezzi interi (whole_board).
-• 📁 DISATTIVATO SU BARRE E RESIDUI: Sulle barre semilavorate standard e sui residui di magazzino, lo sfrido NON viene applicato (vale 0.0 mm). Questo perché le barre sono già rifilate e pre-bordate, quindi i pezzi devono essere ricavati alle loro dimensioni reali per preservare i bordi esistenti.
-
-6. LOGICA DI CALCOLO DEL FABBISOGNO DI COMMESSA E COMBINAZIONI DI MAGAZZINO
----------------------------------------------------------------------------
-Cliccando su "Calcola Fabbisogno" nella scheda Commessa, il sistema determina il materiale necessario. Le selezioni in "Usa magazzino" cambiano la logica come segue:
-
-• Residuo (♻️):
-  - Il sistema verifica preventivamente l'idoneità di ogni residuo in magazzino per l'ordine corrente. Viene inserito nel calcolo solo se è idoneo (stesso colore, spessore e dimensioni adeguate a ospitare almeno un pezzo, rispettando la venatura e i vincoli di altezza standard).
-
-• Barra (📁) Attiva e Pannello (🪵) Disattivo:
-  - Il calcolo dei fabbisogni viene effettuato unicamente sulle barre semilavorate presenti in magazzino.
-  - Per gli elementi che mancano, viene generata la proiezione delle barre virtuali da produrre (fabbisogno barre) e NON viene eseguito il secondo passaggio per tagliarle dai pannelli.
-  - ECCEZIONE (Auto-Attivazione Pannello): Se un pezzo ha dimensioni che superano i limiti fisici di tutte le barre standard disponibili, il sistema attiva AUTOMATICAMENTE l'uso dei Pannelli per quel specifico gruppo di colore/spessore, in modo da consentirne la produzione dal pannello grande.
-
-• Barra (📁) Attiva e Pannello (🪵) Attivo:
-  - Il calcolo ottimizza sulle barre presenti a magazzino. Per le barre mancanti (virtuali), calcola quanti pannelli standard (reali o virtuali da acquistare) servono per produrle (eseguendo il secondo passaggio di ottimizzazione contrassegnato con "[PER PANNELLI]").
-
-• Pannello (🪵) Attivo e Barra (📁) Disattiva:
-  - Tutto il calcolo viene effettuato direttamente sui pannelli standard grandi (e sui residui idonei, se selezionati), ignorando del tutto le barre a magazzino.
-
-• Elementi Non Producibili per Misure:
-  - Se un pezzo supera le dimensioni massime dei formati di magazzino utilizzabili o abilitati (ad esempio se supera persino il formato del pannello intero standard, o se supera le barre standard e l'uso del pannello non è attivo/possibile), il sistema genera una segnalazione dettagliata nel report di fabbisogno indicando descrizione, dimensioni originali e motivo dell'inidoneità.
-
-7. SCHEDA "PRODUZIONE BARRE" (🪵->📁)
--------------------------------------
-Questa sezione gestisce la produzione di barre semilavorate a partire dai pannelli standard grezzi, indipendentemente dalle commesse di prodotti finiti:
-• Lista Iniziale: La tabella si pre-popola automaticamente caricando tutte le barre configurate nel magazzino (con quantità da produrre inizialmente pari a 0).
-• Pianificazione: Seleziona una barra, imposta la quantità da produrre e fai clic su "Aggiungi / Aggiorna" (puoi inserire anche nuovi formati tramite il modulo).
-• Calcola Fabbisogno Pannelli: Determina quanti pannelli grezzi reali e virtuali servono per produrre le barre selezionate. Mostra i layout di taglio nel visualizzatore (scheda "Taglio Pannelli").
-• Consuma Materiali: Aggiorna il database scaricando i pannelli standard reali utilizzati e caricando le barre prodotte nel magazzino semilavorati. Le quantità da produrre vengono poi resettate a 0.
-
-8. VISUALIZZATORE LAYOUT A TRE SCHEDE
--------------------------------------
-Il tab "Visualizzatore Layout" ospita un sotto-notebook a 3 schede sincronizzate con le spunte della barra laterale:
-• Taglio Pannelli (🪵): Mostra gli schemi di taglio dei pannelli standard (grezzi).
-• Taglio Barre (📁): Mostra gli schemi di taglio delle barre (reali o virtuali).
-• Taglio Residui (♻️): Mostra gli schemi di taglio dei residui di magazzino.
-Utilizza i pulsanti "<<" e ">>" di ciascuna scheda per navigare tra le tavole del gruppo selezionato.
-
-9. GESTIONE DELLE COMMESSE E PERSISTENZA
------------------------------------------
-Nella scheda "Commessa / Ordine" è presente un pannello a sinistra per la gestione delle commesse salvate nel database JSON:
-• Nuova: Svuota l'editor corrente per creare una nuova commessa da zero.
-• Salva: Salva le modifiche apportate alla commessa attiva. Se è una nuova commessa, richiede all'operatore un nome ed assegna automaticamente un codice ID numerico incrementale.
-• Elimina: Cancella definitivamente la commessa selezionata dal database.
-• Chiudi: Consente di chiudere manualmente una commessa. Una commessa in stato "Chiusa" viene congelata: non sarà più modificabile (tasti di aggiunta, modifica, rimozione pezzi e importa CSV disabilitati) e non sarà più soggetta a calcolo (pulsante "Calcola Fabbisogno" disabilitato).
-• Chiusura automatica: Quando viene eseguita l'azione "CONSUMA MATERIALI" dall'ottimizzazione, se la commessa era correntemente caricata ed attiva, viene contrassegnata in automatico come "Chiusa" nel database per prevenirne il ricalcolo.
-
-10. IMPORTAZIONE DI FILE CSV, CARTELLE PREDEFINITE E TRACCIATI STANDARD
-----------------------------------------------------------------------
-L'importazione di dati tramite file CSV supporta percorsi di partenza predefiniti:
-• Scheda Commessa / Ordine (tasto Importa CSV): visualizza direttamente la cartella C:\Report\Elem_Cutmob.
-• Tab Magazzino - Pannelli Standard (tasto Importa CSV): visualizza direttamente la cartella C:\Report\Pannelli.
-• Tab Magazzino - Barre / Semilavorati (tasto Importa CSV): visualizza direttamente la cartella C:\Report\Barre.
-
-TRACCIATI STANDARD FILE CSV (Delimitatore supportato: virgola ',' o punto e virgola ';'):
-L'algoritmo effettua una mappatura intelligente delle intestazioni ignorando maiuscole/coordinate e spazi. I sinonimi supportati per ciascuna colonna sono:
-
-A) File di Commessa (Pezzi da tagliare)
-• Descrizione: 'descrizione', 'desc', 'nome', 'articolo', 'pezzo_desc', 'descr'
-• Larghezza (mm): 'larghezza', 'lunghezza', 'width', 'length', 'l', 'w', 'lungh', 'largh', 'larg_stdag'
-• Altezza (mm): 'altezza', 'height', 'h', 'alt', 'alt_stdag'
-• Spessore (mm): 'spessore', 'thickness', 't', 'sp', 'spess', 'lungh_stdag'
-• Quantità: 'quantità', 'quantita', 'qta', 'quantity', 'qty', 'n', 'pezzi', 'sommadiquant_da_prod'
-• Codice Colore: 'codbarra', 'codice colore', 'codicecolore', 'codice', 'color code', 'codice barra'
-• Descrizione Colore: 'descrizione colore', 'descrizionecolore', 'colore descrizione', 'color desc', 'risposte'
-
-B) File di Magazzino (Pannelli Standard / Barre Semilavorate)
-Supporta gli stessi sinonimi dell'Ordine/Commessa, con in più le colonne:
-• ID (Codice Lastra/Barra): 'id', 'id lastra', 'id_lastra', 'codice lastra', 'id_barra', 'id barra', 'codbarra', 'codice barra'
-• Venatura (Grain): 'venatura', 'grain', 'has_grain', 'venato', 'senso venatura' (Accetta: True/False, 1/0)
-• Descrizione Colore aggiuntivo: 'nomevariante'
-• Codice Colore aggiuntivo: 'codopzione'
-
-11. PARAMETRI DI TAGLIO AVANZATI E MACCHINA (Sidebar Sinistra)
---------------------------------------------------------------
-Nella barra laterale sinistra è possibile configurare i seguenti parametri per il solutore:
-• Kerf (Default 5.0 mm): Lo spessore consumato dalla lama ad ogni taglio. Questo valore viene sottratto dallo spazio disponibile su ogni pannello.
-• Rispetta Venatura: Se abilitato, forza i pezzi a mantenere l'orientamento della venatura del materiale (impedisce la rotazione di 90 gradi).
-• Rifilo Verticale e Orizzontale (Default 0 mm): Margine asportato dai lati esterni del pannello vergine prima dell'ottimizzazione. Questo valore viene considerato unicamente sui Pannelli e le coordinate dei pezzi/scarti sul layout finale vengono traslate di conseguenza per riflettere le posizioni fisiche sul pannello grezzo.
-• Sfrido (Default 10 mm): Margine di tolleranza aggiunto alle dimensioni (larghezza e altezza) di ciascun elemento. Lo sfrido viene applicato unicamente quando si taglia su Pannelli vergini. Sulle Barre pre-tagliate e sui Residui lo sfrido non viene utilizzato, mantenendo le dimensioni reali del pezzo.
-• Tipo Macchina:
-  - Sezionatrice: Consente solo il taglio continuo da inizio a fine (tagli a ghigliottina).
-  - Pantografo: Consente la sagomatura e l'ottimizzazione del taglio tramite nesting libero (MaxRects), eliminando il vincolo dei tagli continui.
-• Dimensioni Minime di Recupero: Determina la larghezza e l'altezza minime affinché un ritaglio venga salvato automaticamente come Residuo (♻️) con ID "S_REC_".
-
-12. DIFFERENZA DETTAGLIATA TRA SEZIONATRICE E PANTOGRAFO
----------------------------------------------------------
-La scelta del tipo di macchina influisce profondamente sulle logiche di ottimizzazione e sugli schemi grafici risultanti:
-
-• 🪚 SEZIONATRICE (Taglio a Ghigliottina / Guillotine Cutting):
-  - Logica: I tagli devono obbligatoriamente essere passanti (da bordo a bordo del pannello o del sottomodulo). Non è possibile eseguire intagli a "L" o fermare la lama a metà pannello.
-  - Algoritmo: Utilizza combinazioni di euristiche di ghigliottina 2D (BSSF, BAF, BLSF con ritaglio orizzontale/verticale SAS o LAS) e Shelf Packing.
-  - Visualizzazione: Nel visualizzatore e nei report compaiono linee tratteggiate rosse che indicano i tagli sequenziali da eseguire per guidare l'operatore (es. tagli di testa, sbozzature, refile).
-  - Macchinari: Indicato per sezionatrici classiche manuali, squadratrici o sezionatrici orizzontali/verticali automatiche standard.
-
-• 🌀 PANTOGRAFO (Nesting Libero / MaxRects):
-  - Logica: Elimina completamente il vincolo del taglio passante. I pezzi possono essere posizionati in qualsiasi punto libero della lastra, anche nidificati l'uno dentro l'altro o circondati da altri tagli.
-  - Algoritmo: Utilizza l'algoritmo MaxRects con euristica Best Short Side Fit (BSSF) per il piazzamento bidimensionale dei rettangoli nello spazio libero.
-  - Visualizzazione: Gli schemi mostrano i pezzi disposti sul pannello senza linee tratteggiate di taglio continuo passante. I pezzi vengono ricavati singolarmente lungo il perimetro.
-  - Efficienza: Consente un notevole risparmio di materiale in presenza di pezzi di piccole dimensioni, potendoli posizionare in spazi che una sezionatrice non potrebbe raggiungere senza distruggere i pezzi adiacenti.
-  - Macchinari: Ideale per centri di lavoro a controllo numerico (CNC router / Nesting) dotati di piano aspirante e fresa a candela.
-
-13. LOGICA DI FALLBACK E MAGAZZINO INSUFFICIENTE
+FASE 7: VISUALIZZAZIONE LAYOUT E SCALA DISEGNO
 ------------------------------------------------
-• Magazzino Vuoto: Se tenti di ottimizzare una commessa ma il magazzino con le opzioni selezionate ha scorte a 0, l'applicazione ti chiederà se desideri calcolare i fabbisogni per visualizzare comunque i layout di taglio con pannelli virtuali (standard da acquistare).
-• Magazzino Insufficiente: Se il magazzino ha del materiale ma questo non basta per posizionare tutti i pezzi della commessa, l'ottimizzatore ti segnalerà i pezzi non piazzati e ti proporrà di eseguire il calcolo dei fabbisogni per pianificare gli acquisti mancanti e mostrare i layout di taglio completi.
+1. Schede Visualizzatore: Nel tab "Visualizzatore Layout" trovi tre sottoschede separate per "Taglio Pannelli", "Taglio Barre" e "Taglio Residui".
+2. Navigazione: Scorri le lastre generate con i pulsanti "<<" e ">>" sotto il disegno.
+3. Formato Misure H x W: Nel disegno della lastra, la quota in testa viene visualizzata nel formato Altezza x Larghezza (H x W, es. 2800 x 2070 mm) coerentemente con l'ordinamento delle tabelle scritte.
+4. Raggruppamento Layout Identici: Se l'algoritmo genera schemi di taglio identici (stesso posizionamento dei pezzi, stessi tagli, stesso materiale), la grafica li mostra **una sola volta**.
+   - Il contatore delle lastre mostra solo i layout unici (es. 1 / 2 invece di 1 / 8).
+   - In testa alla lastra viene stampato il moltiplicatore (es. "Lastra: 2800 x 2070 - Grigio x 4").
+   - L'etichetta dei dettagli riporta la dicitura evidenziata "[x4 IDENTICHE]" per indicare all'operatore che lo schema va replicato 4 volte su 4 pannelli distinti.
 
-14. INDICATORE DI ELABORAZIONE (LOADING)
-----------------------------------------
-• Durante i calcoli pesanti (ottimizzazioni e fabbisogni), viene visualizzata una finestra modale al centro dello schermo con il messaggio "Elaborazione in corso. Attendere prego...".
-• Il cursore assume la forma di una clessidra/cerchio ("watch") e l'interfaccia principale viene disabilitata per evitare click accidentali fino al termine delle elaborazioni.
+FASE 8: ESPORTAZIONE DEI REPORT (STAMPA HTML E PDF)
+-----------------------------------------------------
+1. Esportazione PDF: Clicca su "ESPORTA REPORT PDF" nella sidebar. Il sistema crea un file HTML temporaneo e lo converte in PDF tramite Google Chrome headless salvandolo in "C:\CutMob\Report\PDF".
+2. Raggruppamento nei Report: Anche nei report HTML e PDF i layout identici vengono accorpati. Ciascuno schema univoco viene stampato una sola volta contrassegnato da un badge scuro "X 4 LASTRE IDENTICHE", riducendo il numero di fogli da stampare in officina.
+3. Apertura Rapida: Clicca sull'icona della cartella (📂) nella sidebar per aprire direttamente la directory contenente l'ultimo PDF generato.
+4. Scarico Magazzino: Cliccando su "Consuma Materiali" nella scheda principale dell'ottimizzazione (o nella scheda "Produzione Barre"), il sistema scarica fisicamente i materiali reali consumati dal database, registra i nuovi residui generati e contrassegna la commessa come "Chiusa".
 
-15. SCHEMI DI TAGLIO E INTEGRAZIONE CON LA SEZIONATRICE
+=========================================
+INFORMAZIONI E REGOLE DI CALCOLO AVANZATE
+=========================================
+
+1. REGOLE DI ASSOCIAZIONE DELLE BARRE (Comanda la Larghezza W)
+---------------------------------------------------------------
+Le barre semilavorate standard sono pre-bordate sui due lati lunghi. 
+• La larghezza (W) rappresenta l'altezza standard delle ante che vengono prodotte. Nel calcolo delle barre, comanda sempre la larghezza W.
+• Se si produce un'anta larga 597, l'algoritmo preleva la barra di larghezza 597 (lunghezza 2800).
+• Blocco Rotazione: La rotazione è disabilitata per tutti i tagli effettuati su barre standard (semilavorato_bar) e relativi residui (remnant). Questo garantisce che la larghezza dell'anta (es. 597) rimanga allineata alla larghezza della barra specifica (es. 597), escludendo lavorazioni su barre di categorie superiori (es. 747) a tinta unita.
+
+2. VINCOLO ALTEZZE STANDARD
+---------------------------
+L'ottimizzatore estrae dinamicamente le altezze standard note del materiale ed evita di inserire pezzi in barre appartenenti a standard superiori (un pezzo con larghezza 397 non verrà mai posizionato su una barra da 747, a meno che non manchino barre da 397 o 597 e si operi in regime di deficit).
+
+3. APPLICAZIONE SFRIDO E TOLLERANZE DI TAGLIO
+----------------------------------------------
+Lo "Sfrido" impostato nella configurazione (es. 10 mm) è un margine aggiunto alle dimensioni di ogni pezzo per consentire una rifilatura finale.
+• Applicazione: Lo sfrido viene calcolato ed aggiunto unicamente quando i pezzi vengono tagliati a partire da Pannelli Standard grezzi interi.
+• Esclusione: Sulle barre semilavorate standard e sui residui di magazzino, lo sfrido non viene applicato (vale 0.0 mm) per preservare i bordi esistenti e ricavare i pezzi a misura reale.
+
+4. DIFFERENZA DETTAGLIATA TRA SEZIONATRICE E PANTOGRAFO
 -------------------------------------------------------
-• Interpretazione delle quote nel report: Ogni riga del report descrive il posizionamento del pezzo sulla lastra:
-  - "pos=X,Y" indica le coordinate in millimetri del punto di inizio del pezzo sulla lastra.
-  - "dim=W x H" indica le dimensioni finali del pezzo da tagliare.
-  - La distanza calcolata tra due pezzi adiacenti (es. gap di 4.0 mm) è calcolata automaticamente in base al parametro "Kerf" (spessore lama) per evitare riduzioni dimensionali dei pezzi finiti.
-• Gestione dei pannelli Virtuali (Doppio Passaggio): Quando un pezzo è posizionato su un pannello virtuale (es. 2800x1285 mm):
-  1. Primo Passaggio (Taglio Pannelli): Si ricava la tavola virtuale tagliando a misura una lastra standard intera (es. 2800x2070 mm).
-  2. Secondo Passaggio (Taglio Barre): Si esegue lo schema di posizionamento dei pezzi sulla tavola precedentemente ridotta.
-• Trasferimento dati alla sezionatrice:
-  - Sezionatrici manuali: Seguire gli schemi grafici esportati in PDF o HTML, impostando le guide di taglio in base alle quote indicate dalle linee di taglio a ghigliottina (tratteggiate).
-  - Sezionatrici automatiche (CNC): Tutti i tagli di CutMob sono passanti ("ghigliottina"), compatibili con sezionatrici industriali (es. Selco, Gabbiani, Biesse). È possibile inserire le misure calcolate direttamente nel computer della macchina o inserire la distinta pezzi finale nel suo software ottimizzatore proprietario.
-
-16. SCORCIATOIE DI SELEZIONE PARZIALE (TASTO F3)
--------------------------------------------------
-Nella tabella dell'ordine/commessa è possibile selezionare ed elaborare solo una parte degli elementi inseriti:
-• Tasto F3 (Toggle Verde): Selezionando una o più righe e premendo F3, queste vengono evidenziate in verde. Se ripetuto sulle righe già verdi, la selezione viene rimossa.
-• Pulsanti di Selezione: Sopra la tabella sono presenti i pulsanti "Seleziona Tutti" (evidenzia tutti i pezzi in verde) e "Deseleziona" (rimuove l'evidenziazione verde da tutta la lista).
-• Comportamento Calcoli: Se sono presenti pezzi verdi, l'ottimizzazione e il calcolo del fabbisogno verranno effettuati esclusivamente su di essi. Se non ci sono pezzi verdi, verranno elaborati tutti i pezzi presenti.
-• Reset automatico: Quando si cambia commessa o se ne cancella una, lo stato di selezione parziale viene azzerato.
-
-17. FILTRAGGIO RAPIDO DELLE COLONNE (TASTO DESTRO MOUSE)
-----------------------------------------------------------
-In tutte le tabelle dell'applicazione (Pezzi, Barre, Semilavorati, Commesse) è implementato il filtraggio dinamico:
-• Come attivarlo: Fai clic con il tasto destro del mouse sull'intestazione (header) della colonna che vuoi filtrare.
-• Inserimento valore: Apparirà una finestra di dialogo in cui digitare il valore da cercare nella colonna.
-• Rimozione filtro: Per rimuovere il filtro attivo, fai nuovamente clic con il tasto destro sull'intestazione e lascia il campo di testo completamente vuoto.
-• Reset dei filtri: Eliminando una commessa o svuotando i filtri di commessa, vengono azzerati tutti i filtri di colonna attivi.
-• Nota d'aiuto: Per facilità, sotto le descrizioni delle tabelle principali in Magazzino e Commesse è presente un'indicazione in corsivo che ricorda la possibilità di usare il tasto destro per cercare/filtrare.
-
-18. DIREZIONE DELLA VENATURA PANNELLI (VERTICALE/ORIZZONTALE)
---------------------------------------------------------------
-Quando si esegue un'ottimizzazione con pezzi venati ("has_grain" o flag Venatura attivo) ed è spuntata l'opzione "Rispetta Venatura":
-• Richiesta Dinamica: L'applicazione apre una finestra di dialogo chiedendo di specificare la direzione della venatura da considerare per i pannelli.
-• Opzioni: È possibile scegliere tra "↕ Verticale (Default)" e "↔ Orizzontale". L'algoritmo orienterà di conseguenza i pezzi per allinearsi correttamente al senso delle fibre della lastra.
-• Blocco sulle Barre: Si ricorda che sulle barre semilavorate standard e relativi residui, la rotazione rimane disabilitata per ragioni dimensionali e di pre-bordatura fissa dei lati lunghi.
-
-19. CONFIGURAZIONE DATABASE E ACCESSO PROTETTO
------------------------------------------------
-La finestra di configurazione database è protetta da un controllo di sicurezza per impedire modifiche accidentali da parte degli operatori:
-• Accesso Protetto: Per aprire la finestra "Impostazioni/Database" è richiesta una password riservata per gli amministratori del sistema.
-• Configurazione Database: Permette di impostare la connessione a database Locali (JSON) oppure remoti (SQL Server / MySQL) con relativi server, database, utenti e password.
-• Parametri predefiniti: Consente di definire i valori predefiniti di Kerf, Sfrido, Rifili orizzontali/verticali e tipo di macchina per i nuovi calcoli.
-• Informazioni Cliente: Consente di inserire l'intestazione aziendale (Nome Cliente, C.F./P.IVA, e-mail) visualizzata nei report.
-
-20. ESPORTAZIONE DEI REPORT IN PDF CON CHROME HEADLESS
--------------------------------------------------------
-Dopo aver eseguito un calcolo, è possibile generare un report PDF stampabile ed esportabile:
-• Generazione PDF: Clicca sul pulsante "ESPORTA REPORT PDF" nella sidebar sinistra. Il software genera temporaneamente un report HTML e lo converte in PDF in modo trasparente tramite Google Chrome headless.
-• Cartella di Destinazione: I report PDF vengono salvati automaticamente nella cartella "C:\CutMob\Report\PDF" con nome file contenente data e ora dell'esportazione.
-• Apertura Rapida: Il pulsante a forma di cartella (📂) accanto a "ESPORTA REPORT PDF" si attiva dopo il primo salvataggio e consente di aprire direttamente la cartella contenente l'ultimo PDF generato.
-
-21. ATTIVAZIONE/DISATTIVAZIONE PROGRESSIVO TAGLIO (TASTO F4)
-------------------------------------------------------------
-La visualizzazione dei numeri progressivi di taglio che guidano la sequenza delle lavorazioni è controllata globalmente:
-• Tasto F4: Premendo il tasto [F4] in qualsiasi momento dell'applicazione, attivi o disattivi la visualizzazione dei bollini numerati di progressione taglio sul visualizzatore grafico a schermo.
-• Impatto sulle Stampe e Report: Se la visualizzazione è attiva a schermo, i progressivi numerati verranno inseriti automaticamente anche nei report HTML e nei file PDF esportati/stampati. Se disattivata, i report non conterranno la progressione.
-• Indipendenza dalle Impostazioni: Questa funzionalità è slegata dai "Parametri Standard" in configurazione ed è controllabile esclusivamente tramite la scorciatoia F4 per una maggiore velocità operativa.
+• 🪚 Sezionatrice (Taglio a Ghigliottina / Guillotine Cutting):
+  I tagli devono essere passanti (da bordo a bordo del pannello o sottomodulo). Non è possibile eseguire intagli a "L" o fermare la lama a metà pannello. Utilizza combinazioni di euristiche di ghigliottina 2D e Shelf Packing. Nel visualizzatore e nei report compaiono linee tratteggiate rosse numerate (attivabili con F4) per indicare la sequenza di taglio.
+• 🌀 Pantografo (Nesting Libero / MaxRects):
+  Elimina il vincolo del taglio passante. I pezzi possono essere posizionati in qualsiasi punto libero della lastra, anche nidificati l'uno dentro l'altro. Utilizza l'algoritmo MaxRects con euristica Best Short Side Fit (BSSF). Indicato per centri di lavoro CNC router dotati di piano aspirante.
 """
         
         # Inserimento e formattazione testo
