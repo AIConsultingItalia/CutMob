@@ -296,7 +296,7 @@ class CutMobApp:
         
         lbl_manual_shortcut = tk.Label(
             f_shortcuts, 
-            text="💡 SCORCIATOIE RAPIDE\n\n[F1] Manuale d'Uso\n[F3] Attiva Selezione\n[F4] Progressione Taglio\n[Tasto dx] Filtra Colonne", 
+            text="💡 SCORCIATOIE RAPIDE\n\n[F1] Manuale d'Uso\n[F3] Attiva Selezione\n[F4] Progressione Taglio\n[F5] Duplica / Modifica\n[Tasto dx] Filtra Colonne", 
             font=("Segoe UI", 9, "bold"), 
             fg=self.accent_color, 
             bg="#eef2f7",
@@ -1086,6 +1086,7 @@ Benvenuto in CutMob, l'ottimizzatore professionale di taglio bidimensionale per 
 Scorciatoie Rapide Globali:
 • Premi [F1] in qualunque momento per aprire questo manuale d'uso.
 • Premi [F4] in qualunque momento per attivare/disattivare la visualizzazione del progressivo di taglio sul disegno e nei report stampati.
+• Premi [F5] su righe selezionate per duplicare/modificare in serie.
 
 1. TIPOLOGIE DI MATERIALI IN MAGAZZINO
 ---------------------------------------
@@ -4013,7 +4014,13 @@ La visualizzazione dei numeri progressivi di taglio che guidano la sequenza dell
             )
         )
 
-        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas_window = canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        
+        # Consenti all'area interna di allargarsi assieme al canvas
+        def on_canvas_configure(event):
+            canvas.itemconfig(canvas_window, width=event.width)
+            
+        canvas.bind("<Configure>", on_canvas_configure)
         canvas.configure(yscrollcommand=scrollbar.set)
 
         # Griglia intestazioni
@@ -4040,10 +4047,14 @@ La visualizzazione dei numeri progressivi di taglio che guidano la sequenza dell
                 ("Quantità", 80)
             ]
 
+        # Configura il ridimensionamento dinamico delle colonne
+        for col_idx in range(len(headers)):
+            scrollable_frame.grid_columnconfigure(col_idx, weight=1)
+
         # Disegna intestazioni
         for col_idx, (header_text, width) in enumerate(headers):
             lbl = tk.Label(scrollable_frame, text=header_text, font=("Segoe UI", 9, "bold"),
-                           bg="#273c75", fg="white", bd=1, relief=tk.RIDGE, width=int(width/8))
+                           bg="#273c75", fg="white", bd=1, relief=tk.RIDGE)
             lbl.grid(row=0, column=col_idx, sticky="ew", padx=1, pady=1)
 
         # Disegna righe con valori modificabili
@@ -4053,100 +4064,101 @@ La visualizzazione dei numeri progressivi di taglio che guidano la sequenza dell
             
             if source_type in ("barre", "semilavorati"):
                 # ID
-                ent_id = ttk.Entry(scrollable_frame, width=12)
+                ent_id = ttk.Entry(scrollable_frame)
                 ent_id.insert(0, item["id"])
-                ent_id.grid(row=row_idx, column=0, padx=1, pady=1)
+                ent_id.grid(row=row_idx, column=0, padx=1, pady=1, sticky="ew")
                 row_widgets["id"] = ent_id
                 
                 # W
-                ent_w = ttk.Entry(scrollable_frame, width=12)
+                ent_w = ttk.Entry(scrollable_frame)
                 ent_w.insert(0, str(item["width"]))
-                ent_w.grid(row=row_idx, column=1, padx=1, pady=1)
+                ent_w.grid(row=row_idx, column=1, padx=1, pady=1, sticky="ew")
                 row_widgets["width"] = ent_w
                 
                 # H
-                ent_h = ttk.Entry(scrollable_frame, width=12)
+                ent_h = ttk.Entry(scrollable_frame)
                 ent_h.insert(0, str(item["height"]))
-                ent_h.grid(row=row_idx, column=2, padx=1, pady=1)
+                ent_h.grid(row=row_idx, column=2, padx=1, pady=1, sticky="ew")
                 row_widgets["height"] = ent_h
                 
                 # T
-                ent_t = ttk.Entry(scrollable_frame, width=11)
+                ent_t = ttk.Entry(scrollable_frame)
                 ent_t.insert(0, str(item["thickness"]))
-                ent_t.grid(row=row_idx, column=3, padx=1, pady=1)
+                ent_t.grid(row=row_idx, column=3, padx=1, pady=1, sticky="ew")
                 row_widgets["thickness"] = ent_t
                 
                 # CC
-                ent_cc = ttk.Entry(scrollable_frame, width=11)
+                ent_cc = ttk.Entry(scrollable_frame)
                 ent_cc.insert(0, item["color_code"])
-                ent_cc.grid(row=row_idx, column=4, padx=1, pady=1)
+                ent_cc.grid(row=row_idx, column=4, padx=1, pady=1, sticky="ew")
                 row_widgets["color_code"] = ent_cc
                 
                 # CD
-                ent_cd = ttk.Entry(scrollable_frame, width=22)
+                ent_cd = ttk.Entry(scrollable_frame)
                 ent_cd.insert(0, item["color_desc"])
-                ent_cd.grid(row=row_idx, column=5, padx=1, pady=1)
+                ent_cd.grid(row=row_idx, column=5, padx=1, pady=1, sticky="ew")
                 row_widgets["color_desc"] = ent_cd
                 
                 # Has Grain
-                cb_grain = ttk.Combobox(scrollable_frame, values=["Sì", "No"], width=8, state="readonly")
+                cb_grain = ttk.Combobox(scrollable_frame, values=["Sì", "No"], state="readonly")
                 cb_grain.set("Sì" if item.get("has_grain", False) else "No")
-                cb_grain.grid(row=row_idx, column=6, padx=1, pady=1)
+                cb_grain.grid(row=row_idx, column=6, padx=1, pady=1, sticky="ew")
                 row_widgets["has_grain"] = cb_grain
                 
                 # Q
-                ent_q = ttk.Entry(scrollable_frame, width=10)
+                ent_q = ttk.Entry(scrollable_frame)
                 ent_q.insert(0, str(item.get("quantity", 1)))
-                ent_q.grid(row=row_idx, column=7, padx=1, pady=1)
+                ent_q.grid(row=row_idx, column=7, padx=1, pady=1, sticky="ew")
                 row_widgets["quantity"] = ent_q
                 
             else: # pezzi
                 # Descrizione
-                ent_desc = ttk.Entry(scrollable_frame, width=22)
+                ent_desc = ttk.Entry(scrollable_frame)
                 ent_desc.insert(0, item["descrizione"])
-                ent_desc.grid(row=row_idx, column=0, padx=1, pady=1)
+                ent_desc.grid(row=row_idx, column=0, padx=1, pady=1, sticky="ew")
                 row_widgets["descrizione"] = ent_desc
                 
                 # W
-                ent_w = ttk.Entry(scrollable_frame, width=12)
+                ent_w = ttk.Entry(scrollable_frame)
                 ent_w.insert(0, str(item["width"]))
-                ent_w.grid(row=row_idx, column=1, padx=1, pady=1)
+                ent_w.grid(row=row_idx, column=1, padx=1, pady=1, sticky="ew")
                 row_widgets["width"] = ent_w
                 
                 # H
-                ent_h = ttk.Entry(scrollable_frame, width=12)
+                ent_h = ttk.Entry(scrollable_frame)
                 ent_h.insert(0, str(item["height"]))
-                ent_h.grid(row=row_idx, column=2, padx=1, pady=1)
+                ent_h.grid(row=row_idx, column=2, padx=1, pady=1, sticky="ew")
                 row_widgets["height"] = ent_h
                 
                 # T
-                ent_t = ttk.Entry(scrollable_frame, width=11)
+                ent_t = ttk.Entry(scrollable_frame)
                 ent_t.insert(0, str(item["thickness"]))
-                ent_t.grid(row=row_idx, column=3, padx=1, pady=1)
+                ent_t.grid(row=row_idx, column=3, padx=1, pady=1, sticky="ew")
                 row_widgets["thickness"] = ent_t
                 
                 # CC
-                ent_cc = ttk.Entry(scrollable_frame, width=11)
+                ent_cc = ttk.Entry(scrollable_frame)
                 ent_cc.insert(0, item["color_code"])
-                ent_cc.grid(row=row_idx, column=4, padx=1, pady=1)
+                ent_cc.grid(row=row_idx, column=4, padx=1, pady=1, sticky="ew")
                 row_widgets["color_code"] = ent_cc
                 
                 # CD
-                ent_cd = ttk.Entry(scrollable_frame, width=22)
+                ent_cd = ttk.Entry(scrollable_frame)
                 ent_cd.insert(0, item["color_desc"])
-                ent_cd.grid(row=row_idx, column=5, padx=1, pady=1)
+                ent_cd.grid(row=row_idx, column=5, padx=1, pady=1, sticky="ew")
                 row_widgets["color_desc"] = ent_cd
                 
                 # Q
-                ent_q = ttk.Entry(scrollable_frame, width=10)
+                ent_q = ttk.Entry(scrollable_frame)
                 ent_q.insert(0, str(item.get("quantity", 1)))
-                ent_q.grid(row=row_idx, column=6, padx=1, pady=1)
+                ent_q.grid(row=row_idx, column=6, padx=1, pady=1, sticky="ew")
                 row_widgets["quantity"] = ent_q
                 
             row_entries.append(row_widgets)
 
         canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=10, pady=10)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y, pady=10)
+
 
         # Frame per i pulsanti a fondo maschera
         btn_frame = tk.Frame(dialog, bg="#f5f6fa", pady=10)
