@@ -355,10 +355,11 @@ class CutMobApp:
         ttk.Button(tb_barre, text="Annulla Filtri", style="Accent.TButton", command=self.clear_filters_barre).pack(side=tk.LEFT, padx=2)
         
         # Treeview Barre
-        cols_barre = ("id", "dim", "thick", "color_code", "color_desc", "grain", "qty")
+        cols_barre = ("id", "tipo", "dim", "thick", "color_code", "color_desc", "grain", "qty")
         self.tree_barre = ttk.Treeview(frame_barre, columns=cols_barre, show="headings", height=6)
         self.tree_barre.pack(fill=tk.BOTH, expand=True)
         self.tree_barre.heading("id", text="ID Pannello")
+        self.tree_barre.heading("tipo", text="Tipo")
         self.tree_barre.heading("dim", text="Dimensioni (H ↕ x W mm)")
         self.tree_barre.heading("thick", text="Spessore (mm)")
         self.tree_barre.heading("color_code", text="Cod. Colore")
@@ -366,6 +367,7 @@ class CutMobApp:
         self.tree_barre.heading("grain", text="Venatura")
         self.tree_barre.heading("qty", text="Quantità")
         self.tree_barre.column("id", width=80, anchor=tk.CENTER)
+        self.tree_barre.column("tipo", width=100, anchor=tk.CENTER)
         self.tree_barre.column("dim", width=180, anchor=tk.CENTER)
         self.tree_barre.column("thick", width=100, anchor=tk.CENTER)
         self.tree_barre.column("color_code", width=100, anchor=tk.CENTER)
@@ -765,6 +767,8 @@ class CutMobApp:
                 val_to_check = ""
                 if col_name == "id":
                     val_to_check = str(b["id"])
+                elif col_name == "tipo":
+                    val_to_check = "♻️ residuo" if b["id"].startswith("S_REC_") else "🪵 pannello"
                 elif col_name == "dim":
                     dim_val = f"{int(b['height'])} x {int(b['width'])}"
                     dim_val_alt = f"{int(b['height'])} ↕ x {int(b['width'])}"
@@ -789,10 +793,13 @@ class CutMobApp:
             if not match:
                 continue
                 
+            is_rec = b["id"].startswith("S_REC_")
+            tipo_str = "♻️ Residuo" if is_rec else "🪵 Pannello"
             dim_str = f"{int(b['height'])} ↕ x {int(b['width'])}" if b.get("has_grain", False) else f"{int(b['height'])} x {int(b['width'])}"
             grain_str = "Sì" if b.get("has_grain", False) else "No"
             self.tree_barre.insert("", tk.END, values=(
                 b["id"],
+                tipo_str,
                 dim_str,
                 b["thickness"],
                 b["color_code"],
@@ -1356,13 +1363,23 @@ Lo "Sfrido" impostato nella configurazione (es. 10 mm) è un margine aggiunto al
         
         # 1. Residui (se selezionati e idonei)
         if use_residuo:
-            suitable_residui = self.get_suitable_residui(raw_semis, optimization_order, respect_grain_dict, group_std_heights)
+            all_residui = [s for s in raw_semis if s["id"].startswith("S_REC_")]
+            for r in all_residui:
+                r["_origin_table"] = "semilavorati"
+            
+            barre_residui = [b for b in raw_barre if b["id"].startswith("S_REC_")]
+            for r in barre_residui:
+                r["_origin_table"] = "barre"
+            
+            combined_residui = all_residui + barre_residui
+            suitable_residui = self.get_suitable_residui(combined_residui, optimization_order, respect_grain_dict, group_std_heights)
             for s in suitable_residui:
                 qty = int(s.get("quantity", 1))
                 for _ in range(qty):
                     item = copy.deepcopy(s)
                     item["stock_type"] = "remnant"
                     item["has_grain"] = s.get("has_grain", False)
+                    item["_origin_table"] = s.get("_origin_table", "semilavorati")
                     key = f"{item['thickness']}mm_{item['color_code']}"
                     self.orient_stock_item(item, group_std_heights.get(key, []))
                     stocks.append(item)
@@ -1376,6 +1393,7 @@ Lo "Sfrido" impostato nella configurazione (es. 10 mm) è un margine aggiunto al
                         item = copy.deepcopy(s)
                         item["stock_type"] = "semilavorato_bar"
                         item["has_grain"] = s.get("has_grain", False)
+                        item["_origin_table"] = "semilavorati"
                         key = f"{item['thickness']}mm_{item['color_code']}"
                         self.orient_stock_item(item, group_std_heights.get(key, []))
                         stocks.append(item)
@@ -1383,12 +1401,14 @@ Lo "Sfrido" impostato nella configurazione (es. 10 mm) è un margine aggiunto al
         # 3. Barre (se selezionate)
         if use_barra:
             for b in raw_barre:
-                qty = int(b.get("quantity", 1))
-                for _ in range(qty):
-                    item = copy.deepcopy(b)
-                    item["stock_type"] = "whole_board"
-                    item["has_grain"] = b.get("has_grain", False)
-                    stocks.append(item)
+                if not b["id"].startswith("S_REC_"):
+                    qty = int(b.get("quantity", 1))
+                    for _ in range(qty):
+                        item = copy.deepcopy(b)
+                        item["stock_type"] = "whole_board"
+                        item["has_grain"] = b.get("has_grain", False)
+                        item["_origin_table"] = "barre"
+                        stocks.append(item)
         
         if not stocks:
             risposta = messagebox.askyesno(
@@ -3626,8 +3646,8 @@ Lo "Sfrido" impostato nella configurazione (es. 10 mm) è un margine aggiunto al
     def show_barre_dialog(self, edit_index=None):
         dialog = tk.Toplevel(self.root)
         is_edit = edit_index is not None
-        dialog.title("Modifica Barra Standard" if is_edit else "Aggiungi Barra Standard")
-        dialog.geometry("350x520")
+        dialog.title("Modifica Pannello" if is_edit else "Aggiungi Pannello")
+        dialog.geometry("350x580")
         dialog.grab_set()
         
         barre = self.data_manager.get_barre()
@@ -3635,7 +3655,7 @@ Lo "Sfrido" impostato nella configurazione (es. 10 mm) è un margine aggiunto al
         
         # Form
         fields = [
-            ("ID Barra (es. B2):", "ent_id", current_item["id"] if is_edit else ""),
+            ("ID Pannello (es. B2):", "ent_id", current_item["id"] if is_edit else ""),
             ("Larghezza (mm):", "ent_w", str(current_item["width"]) if is_edit else ""),
             ("Altezza (mm) ↕ (Senso Venatura):", "ent_h", str(current_item["height"]) if is_edit else ""),
             ("Spessore (mm):", "ent_t", str(current_item["thickness"]) if is_edit else ""),
@@ -3656,7 +3676,19 @@ Lo "Sfrido" impostato nella configurazione (es. 10 mm) è un margine aggiunto al
         initial_grain = current_item.get("has_grain", False) if is_edit else False
         var_grain = tk.BooleanVar(value=initial_grain)
         chk = tk.Checkbutton(dialog, text="Ha venatura (Evita rotazioni in ottimizzazione)", variable=var_grain)
-        chk.pack(anchor=tk.W, padx=15, pady=8)
+        chk.pack(anchor=tk.W, padx=15, pady=4)
+
+        # type selector
+        ttk.Label(dialog, text="Tipo Materiale:").pack(anchor=tk.W, padx=15, pady=(4, 1))
+        combo_type = ttk.Combobox(dialog, values=["Pannello (🪵)", "Residuo (♻️)"], state="readonly")
+        
+        initial_type = "Pannello (🪵)"
+        if is_edit:
+            st = current_item.get("stock_type", "whole_board")
+            if st == "remnant" or current_item["id"].startswith("S_REC_"):
+                initial_type = "Residuo (♻️)"
+        combo_type.set(initial_type)
+        combo_type.pack(fill=tk.X, padx=15, pady=(0, 4))
         
         def save():
             try:
@@ -3668,6 +3700,7 @@ Lo "Sfrido" impostato nella configurazione (es. 10 mm) è un margine aggiunto al
                 cd = entries["ent_cd"].get().strip()
                 q = int(entries["ent_q"].get())
                 has_grain = var_grain.get()
+                selected_type = combo_type.get()
                 
                 if not item_id or w <= 0 or h <= 0 or t <= 0 or not cc or q <= 0:
                     raise ValueError("I campi obbligatori non sono validi.")
@@ -3675,6 +3708,16 @@ Lo "Sfrido" impostato nella configurazione (es. 10 mm) è un margine aggiunto al
                 messagebox.showerror("Errore inserimento", "Dati non validi. Verifica le dimensioni, spessori e quantità.")
                 return
                 
+            # Process stock_type and prefix ID if it's a residual
+            if selected_type == "Residuo (♻️)":
+                stock_type = "remnant"
+                if not item_id.startswith("S_REC_"):
+                    item_id = f"S_REC_{item_id}"
+            else:
+                stock_type = "whole_board"
+                if item_id.startswith("S_REC_"):
+                    item_id = item_id[6:]
+
             # Verifica ID duplicati
             if not is_edit or item_id != current_item["id"]:
                 if any(b["id"] == item_id for b in barre):
@@ -3689,7 +3732,8 @@ Lo "Sfrido" impostato nella configurazione (es. 10 mm) è un margine aggiunto al
                 "color_code": cc,
                 "color_desc": cd,
                 "has_grain": has_grain,
-                "quantity": q
+                "quantity": q,
+                "stock_type": stock_type
             }
             
             if is_edit:
@@ -3997,8 +4041,9 @@ Lo "Sfrido" impostato nella configurazione (es. 10 mm) è un margine aggiunto al
         canvas.configure(yscrollcommand=scrollbar.set)
 
         # Griglia intestazioni
+        # Griglia intestazioni
         headers = []
-        if source_type == "semilavorati":
+        if source_type in ("barre", "semilavorati"):
             headers = [
                 ("ID (Univoco)", 100),
                 ("Larghezza (W mm)", 100),
@@ -4008,17 +4053,6 @@ Lo "Sfrido" impostato nella configurazione (es. 10 mm) è un margine aggiunto al
                 ("Desc. Colore", 180),
                 ("Venatura (S/N)", 90),
                 ("Tipo", 90),
-                ("Quantità", 80)
-            ]
-        elif source_type == "barre":
-            headers = [
-                ("ID (Univoco)", 100),
-                ("Larghezza (W mm)", 100),
-                ("Altezza (H mm)", 100),
-                ("Spessore (mm)", 90),
-                ("Cod. Colore", 90),
-                ("Desc. Colore", 180),
-                ("Venatura (S/N)", 90),
                 ("Quantità", 80)
             ]
         else: # pezzi
@@ -4090,28 +4124,30 @@ Lo "Sfrido" impostato nella configurazione (es. 10 mm) è un margine aggiunto al
                 cb_grain.grid(row=row_idx, column=6, padx=1, pady=1, sticky="ew")
                 row_widgets["has_grain"] = cb_grain
                 
-                if source_type == "semilavorati":
-                    # Tipo
-                    cb_type = ttk.Combobox(scrollable_frame, values=["Barra (📦)", "Residuo (♻️)"], state="readonly")
+                # Tipo
+                cb_type = ttk.Combobox(scrollable_frame, state="readonly")
+                if source_type == "barre":
+                    cb_type["values"] = ["Pannello (🪵)", "Residuo (♻️)"]
+                    st = item.get("stock_type", "whole_board")
+                    if st == "remnant" or item["id"].startswith("S_REC_"):
+                        cb_type.set("Residuo (♻️)")
+                    else:
+                        cb_type.set("Pannello (🪵)")
+                else:
+                    cb_type["values"] = ["Barra (📦)", "Residuo (♻️)"]
                     st = item.get("stock_type", "semilavorato_bar")
                     if st == "remnant" or item["id"].startswith("S_REC_"):
                         cb_type.set("Residuo (♻️)")
                     else:
                         cb_type.set("Barra (📦)")
-                    cb_type.grid(row=row_idx, column=7, padx=1, pady=1, sticky="ew")
-                    row_widgets["stock_type_widget"] = cb_type
-                    
-                    # Q
-                    ent_q = ttk.Entry(scrollable_frame)
-                    ent_q.insert(0, str(item.get("quantity", 1)))
-                    ent_q.grid(row=row_idx, column=8, padx=1, pady=1, sticky="ew")
-                    row_widgets["quantity"] = ent_q
-                else:
-                    # Q (per barre standard)
-                    ent_q = ttk.Entry(scrollable_frame)
-                    ent_q.insert(0, str(item.get("quantity", 1)))
-                    ent_q.grid(row=row_idx, column=7, padx=1, pady=1, sticky="ew")
-                    row_widgets["quantity"] = ent_q
+                cb_type.grid(row=row_idx, column=7, padx=1, pady=1, sticky="ew")
+                row_widgets["stock_type_widget"] = cb_type
+                
+                # Q
+                ent_q = ttk.Entry(scrollable_frame)
+                ent_q.insert(0, str(item.get("quantity", 1)))
+                ent_q.grid(row=row_idx, column=8, padx=1, pady=1, sticky="ew")
+                row_widgets["quantity"] = ent_q
                 
             else: # pezzi
                 # Descrizione
@@ -4195,7 +4231,6 @@ Lo "Sfrido" impostato nella configurazione (es. 10 mm) è un margine aggiunto al
                         if not item_id or w <= 0 or h <= 0 or t <= 0 or not cc or q <= 0:
                             raise ValueError("Campi obbligatori non validi.")
                         
-                        stock_type = "semilavorato_bar"
                         if source_type == "semilavorati":
                             selected_type = r_widgets["stock_type_widget"].get()
                             if selected_type == "Residuo (♻️)":
@@ -4206,6 +4241,18 @@ Lo "Sfrido" impostato nella configurazione (es. 10 mm) è un margine aggiunto al
                                 stock_type = "semilavorato_bar"
                                 if item_id.startswith("S_REC_"):
                                     item_id = item_id[6:]
+                        elif source_type == "barre":
+                            selected_type = r_widgets["stock_type_widget"].get()
+                            if selected_type == "Residuo (♻️)":
+                                stock_type = "remnant"
+                                if not item_id.startswith("S_REC_"):
+                                    item_id = f"S_REC_{item_id}"
+                            else:
+                                stock_type = "whole_board"
+                                if item_id.startswith("S_REC_"):
+                                    item_id = item_id[6:]
+                        else:
+                            stock_type = "whole_board"
 
                         # Controllo univocità chiave
                         if item_id in used_ids_in_batch:
@@ -4230,10 +4277,9 @@ Lo "Sfrido" impostato nella configurazione (es. 10 mm) è un margine aggiunto al
                             "color_code": cc,
                             "color_desc": cd,
                             "has_grain": has_grain,
-                            "quantity": q
+                            "quantity": q,
+                            "stock_type": stock_type
                         }
-                        if source_type == "semilavorati":
-                            rec["stock_type"] = stock_type
                         new_records.append(rec)
                     else: # pezzi
                         desc = r_widgets["descrizione"].get().strip()

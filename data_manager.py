@@ -621,11 +621,14 @@ class DataManager:
         for ub_idx, ub in enumerate(used_boards):
             new_semis = ub.get("new_semilavorati", [])
             for idx, ns in enumerate(new_semis):
-                # Se il pannello genitore era una barra (semilavorato_bar) o residuo di barra,
-                # salviamo l'altezza standard originaria nell'ID e orientiamo le dimensioni
-                # con width = altezza standard e height = lunghezza.
-                is_bar = ub["board"].get("stock_type") in ["semilavorato_bar", "remnant"]
-                if is_bar:
+                # Determina l'origine del pannello genitore
+                origin_table = ub["board"].get("_origin_table")
+                # Fallback se non impostato: se stock_type è remnant/semilavorato_bar, consideriamo semilavorati
+                if not origin_table:
+                    is_bar = ub["board"].get("stock_type") in ["semilavorato_bar", "remnant"]
+                    origin_table = "semilavorati" if is_bar else "barre"
+                
+                if origin_table == "semilavorati":
                     std_h = ns["height"]
                     length = ns["width"]
                     unique_id = f"S_REC_H{int(std_h)}_{int(time.time())}_{ub_idx}_{idx}"
@@ -636,18 +639,20 @@ class DataManager:
                         "thickness": ns["thickness"],
                         "color_code": ns["color_code"],
                         "color_desc": ns["color_desc"],
-                        "quantity": 1
+                        "quantity": 1,
+                        "stock_type": "remnant"
                     })
-                else:
+                else: # barre
                     unique_id = f"S_REC_{int(time.time())}_{ub_idx}_{idx}"
-                    nuovi_semi.append({
+                    nuove_barre.append({
                         "id": unique_id,
                         "width": min(ns["width"], ns["height"]),
                         "height": max(ns["width"], ns["height"]),
                         "thickness": ns["thickness"],
                         "color_code": ns["color_code"],
                         "color_desc": ns["color_desc"],
-                        "quantity": 1
+                        "quantity": 1,
+                        "stock_type": "remnant"
                     })
                 
         self.set_barre(nuove_barre)

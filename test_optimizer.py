@@ -166,13 +166,15 @@ def test_guillotine_and_semilavorati():
     all_used = [ub]
     dm.consume_materials(all_used)
     
-    # Verifica che la barra sia stata rimossa dallo stock
-    assert len(dm.get_barre()) == 0, "La barra usata B1 dovrebbe essere stata rimossa dal magazzino!"
+    # Verifica che la barra B1 sia stata consumata e che il suo residuo sia stato inserito in barre (Pannelli)
+    barre_in_db = dm.get_barre()
+    print(f"Pannelli registrati nel database dopo il consumo: {barre_in_db}")
+    assert len(barre_in_db) == 1, "Il nuovo residuo del pannello B1 dovrebbe essere registrato in barre!"
+    assert barre_in_db[0]["id"].startswith("S_REC_"), "Il residuo del pannello deve avere prefisso S_REC_!"
     
-    # Verifica che il nuovo semilavorato sia stato aggiunto
+    # Verifica che il database dei semilavorati sia rimasto vuoto (perché B1 era originato da barre)
     semis_in_db = dm.get_semilavorati()
-    print(f"Semilavorati registrati nel database dopo il consumo: {semis_in_db}")
-    assert len(semis_in_db) == len(new_semis), "I nuovi semilavorati dovrebbero essere registrati nel database!"
+    assert len(semis_in_db) == 0, "Nessun residuo dovrebbe essere finito in semilavorati poichè il genitore B1 era un pannello!"
     
     # 3. Testa l'esportazione del report HTML
     report_file = "test_report.html"
