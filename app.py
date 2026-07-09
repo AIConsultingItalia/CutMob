@@ -1114,16 +1114,16 @@ Prima di procedere ai tagli, assicurati di configurare correttamente i parametri
 2. Parametri di Taglio: Imposta il "Kerf" (spessore lama della sezionatrice, es. 5 mm), i "Rifili" (margini asportati dai quattro lati del pannello prima dell'ottimizzazione) e lo "Sfrido" (tollerranza aggiunta ad ogni pezzo, applicata solo sui pannelli grandi interii).
 3. Selezione Macchina:
    - "Sezionatrice": Ottimizza i tagli in modo continuo da un lato all'altro della lastra (tagli a ghigliottina, indicati per squadratrici o sezionatrici orizzontali/verticali).
-   - "Pantografo": Esegue nesting libero tramite algoritmo MaxRects, ottimizzando il posizionamento senza vincoli di taglio passante (ideale per centri di lavoro CNC con piano aspirante).
-4. Dati Aziendali: Configura l'intestazione cliente e la mail che verranno stampate nei report.
-
-FASE 3: GESTIONE DEL MAGAZZINO E CARICAMENTO CODICI
+   - "Pantografo": Esegue nesting libero tramite algoritmo MaxRects, ottimizzando il posizionamento senza vincoli di taglio passante (ideale per centri di lavoro CNCFASE 3: GESTIONE DEL MAGAZZINO E CARICAMENTO CODICI
 -----------------------------------------------------
 Per poter calcolare le commesse, devi caricare i formati di magazzino disponibili:
 1. Formati e Tabelle: Nella scheda "Magazzino (Stock)" sono presenti due tabelle distinte:
-   - "Pannelli Standard (Barre Vergini)": Le lastre grezze di fornitura (es. 2800x2070 mm).
-   - "Barre / Semilavorati (Pezzi Riutilizzabili)": I semilavorati pre-tagliati ad altezza finita (es. 2800x720 mm) o residui di lavorazioni passate (contrassegnati da ID "S_REC_").
-2. Inserimento Manuale: Clicca su "Aggiungi Pannello" o "Aggiungi Semilavorato". Nota che la maschera di inserimento si aprirà completamente vuota senza valori predefiniti per garantirti un caricamento pulito e privo di vecchi residui.
+   - "Pannelli Standard (Barre Vergini)": Le lastre grezze di fornitura. Possono essere interi ("🪵 Pannello") o scarti riutilizzabili grandi ("♻️ Residuo", con prefisso "S_REC_").
+   - "Barre / Semilavorati (Pezzi Riutilizzabili)": I semilavorati pre-tagliati ad altezza finita (es. 2800x720 mm) o residui di lavorazioni passate ("♻️ Residuo", con prefisso "S_REC_").
+2. Inserimento e Modifica Manuale: Cliccando su "Aggiungi Pannello" o "Aggiungi Semilavorato" viene mostrato un selettore "Tipo Materiale" che consente di definire se si tratta di un pezzo intero o di un residuo di recupero.
+   - Scegliendo "Residuo (♻️)", il codice ID inserito riceve automaticamente il prefisso "S_REC_".
+   - Scegliendo "Pannello" o "Barra", l'eventuale prefisso "S_REC_" viene rimosso dal codice.
+   La maschera si apre completamente vuota senza valori predefiniti per garantire un inserimento pulito.
 3. Controllo ID Duplicati: All'atto del salvataggio, il sistema verifica che il codice ID inserito sia univoco nel database, impedendo la creazione di doppioni.
 4. Importazione Massiva CSV: Puoi importare interi elenchi di magazzino tramite file CSV. Facendo clic su "Importa CSV", la finestra si aprirà direttamente nelle cartelle predefinite di rete ("C:\Report\Pannelli" per pannelli e "C:\Report\Barre" per semilavorati).
 
@@ -1140,15 +1140,15 @@ FASE 5: DUPLICAZIONE E MODIFICA MASSIVA (TASTO F5)
 Se hai necessità di duplicare o modificare rapidamente più righe contemporaneamente nelle tabelle dei Pannelli, dei Semilavorati o dei Pezzi dell'Ordine:
 1. Selezione: Seleziona una o più righe tenendo premuto Ctrl o Shift.
 2. Apertura Griglia (F5): Premi il tasto [F5]. Si aprirà una finestra di dialogo contenente una griglia stile foglio Excel con i dati delle righe selezionate.
-3. Ridimensionamento Dinamico: Se le celle sono troppo strette, allarga la finestra trascinando i bordi laterali: tutte le colonne di input si espanderanno automaticamente in larghezza per garantire la massima leggibilità.
-4. Modifica e Inserimento: Effettua le modifiche desiderate (es. cambia i codici, le quantità o le misure).
+3. Colonna Tipo per Magazzino: Anche per i Pannelli, la griglia F5 include la colonna "Tipo" con il menu a discesa per cambiare velocemente la natura dei record (Pannello o Residuo).
+4. Ridimensionamento Dinamico: Se le celle sono troppo strette, allarga la finestra trascinando i bordi laterali: tutte le colonne di input si espanderanno automaticamente in larghezza per garantire la massima leggibilità.
 5. Conferma (F5): Premi nuovamente [F5] o clicca su "Inserisci Record (F5)". Il sistema validerà i campi, controllerà che non ci siano ID duplicati nel database e inserirà in blocco i nuovi record duplicati, aggiornando le tabelle di partenza.
 
 FASE 6: ELABORAZIONE E OTTIMIZZAZIONE DEL TAGLIO
 --------------------------------------------------
 1. Impostazione Filtri Magazzino: Nella sidebar sinistra seleziona quali materiali considerare per il calcolo ("Residuo ♻️", "Barra 📁", "Pannello 🪵").
-2. Esecuzione: Clicca su "Calcola Fabbisogno" nella scheda Commessa. Un indicatore grafico di caricamento ("Elaborazione in corso...") disabiliterà temporaneamente lo schermo per evitare interferenze durante l'elaborazione degli algoritmi di nesting.
-3. Logiche di Consumo ed Emergenza: L'ottimizzatore consuma prioritariamente i residui idonei, poi le barre semilavorate ed infine i pannelli standard interi. Se un pezzo è troppo grande per le barre abilitate, il sistema attiva automaticamente i pannelli grezzi per quel specifico colore per non bloccare la produzione.
+2. Esecuzione: Clicca su "Calcola Fabbisogno" nella scheda Commessa. Un indicatore grafico di caricamento ("Elaborazione in corso...") disabiliterà temporaneamente lo schermo.
+3. Priorità e Logiche di Consumo: Se il flag "Residuo ♻️" è attivo, tutti i residui idonei (sia dell'elenco Pannelli che dell'elenco Barre) vengono inseriti all'inizio della lista e consumati per primi per ridurre lo scarto. Se il flag non è attivo, essi non vengono considerati nel calcolo. Successivamente vengono consumate le barre standard e infine i pannelli interi standard. Se un pezzo è troppo grande per le barre abilitate, il sistema attiva automaticamente i pannelli grezzi per quel specifico colore.
 4. Doppio Passaggio (Pannelli Virtuali): Se mancano barre semilavorate a magazzino, il sistema calcolerà quante barre "virtuali" servono e genererà un primo piano di taglio contrassegnato con "[PER PANNELLI]" per ricavare tali barre partendo dai pannelli standard interi.
 
 FASE 7: VISUALIZZAZIONE LAYOUT E SCALA DISEGNO
@@ -1161,12 +1161,15 @@ FASE 7: VISUALIZZAZIONE LAYOUT E SCALA DISEGNO
    - In testa alla lastra viene stampato il moltiplicatore (es. "Lastra: 2800 x 2070 - Grigio x 4").
    - L'etichetta dei dettagli riporta la dicitura evidenziata "[x4 IDENTICHE]" per indicare all'operatore che lo schema va replicato 4 volte su 4 pannelli distinti.
 
-FASE 8: ESPORTAZIONE DEI REPORT (STAMPA HTML E PDF)
+FASE 8: ESPORTAZIONE DEI REPORT E SCARICO MAGAZZINO
 -----------------------------------------------------
 1. Esportazione PDF: Clicca su "ESPORTA REPORT PDF" nella sidebar. Il sistema crea un file HTML temporaneo e lo converte in PDF tramite Google Chrome headless salvandolo in "C:\CutMob\Report\PDF".
 2. Raggruppamento nei Report: Anche nei report HTML e PDF i layout identici vengono accorpati. Ciascuno schema univoco viene stampato una sola volta contrassegnato da un badge scuro "X 4 LASTRE IDENTICHE", riducendo il numero di fogli da stampare in officina.
 3. Apertura Rapida: Clicca sull'icona della cartella (📂) nella sidebar per aprire direttamente la directory contenente l'ultimo PDF generato.
-4. Scarico Magazzino: Cliccando su "Consuma Materiali" nella scheda principale dell'ottimizzazione (o nella scheda "Produzione Barre"), il sistema scarica fisicamente i materiali reali consumati dal database, registra i nuovi residui generati e contrassegna la commessa come "Chiusa".
+4. Scarico Magazzino e Ritorno Scarti: Cliccando su "Consuma Materiali", il sistema aggiorna le giacenze reali:
+   - Rimuove o decrementa i materiali consumati.
+   - Registra i nuovi residui generati, inserendoli nella lista di appartenenza del pannello/barra genitore (i residui da pannello tornano nell'elenco dei Pannelli; i residui da barre tornano in quello dei Semilavorati).
+   - Contrassegna la commessa come "Chiusa".
 
 =========================================
 INFORMAZIONI E REGOLE DI CALCOLO AVANZATE

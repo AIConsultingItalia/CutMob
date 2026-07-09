@@ -60,7 +60,7 @@
  [],
  False,
  False,
- 1783588710,
+ 1783590048,
  [('runw.exe',
    'C:\\Users\\difra\\AppData\\Roaming\\Python\\Python314\\site-packages\\PyInstaller\\bootloader\\Windows-64bit-intel\\runw.exe',
    'EXECUTABLE')],
