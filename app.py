@@ -3732,7 +3732,7 @@ Lo "Sfrido" impostato nella configurazione (es. 10 mm) è un margine aggiunto al
         dialog = tk.Toplevel(self.root)
         is_edit = edit_index is not None
         dialog.title("Modifica Semilavorato" if is_edit else "Aggiungi Semilavorato")
-        dialog.geometry("350x520")
+        dialog.geometry("350x580")
         dialog.grab_set()
         
         semis = self.data_manager.get_semilavorati()
@@ -3760,7 +3760,19 @@ Lo "Sfrido" impostato nella configurazione (es. 10 mm) è un margine aggiunto al
         initial_grain = current_item.get("has_grain", False) if is_edit else False
         var_grain = tk.BooleanVar(value=initial_grain)
         chk = tk.Checkbutton(dialog, text="Ha venatura (Evita rotazioni in ottimizzazione)", variable=var_grain)
-        chk.pack(anchor=tk.W, padx=15, pady=8)
+        chk.pack(anchor=tk.W, padx=15, pady=4)
+
+        # type selector
+        ttk.Label(dialog, text="Tipo Materiale:").pack(anchor=tk.W, padx=15, pady=(4, 1))
+        combo_type = ttk.Combobox(dialog, values=["Barra (📦)", "Residuo (♻️)"], state="readonly")
+        
+        initial_type = "Barra (📦)"
+        if is_edit:
+            st = current_item.get("stock_type", "semilavorato_bar")
+            if st == "remnant" or current_item["id"].startswith("S_REC_"):
+                initial_type = "Residuo (♻️)"
+        combo_type.set(initial_type)
+        combo_type.pack(fill=tk.X, padx=15, pady=(0, 4))
         
         def save():
             try:
@@ -3772,6 +3784,7 @@ Lo "Sfrido" impostato nella configurazione (es. 10 mm) è un margine aggiunto al
                 cd = entries["ent_cd"].get().strip()
                 q = int(entries["ent_q"].get())
                 has_grain = var_grain.get()
+                selected_type = combo_type.get()
                 
                 if not item_id or w <= 0 or h <= 0 or t <= 0 or not cc or q <= 0:
                     raise ValueError("I campi obbligatori non sono validi.")
@@ -3779,6 +3792,16 @@ Lo "Sfrido" impostato nella configurazione (es. 10 mm) è un margine aggiunto al
                 messagebox.showerror("Errore inserimento", "Dati non validi. Verifica le dimensioni, spessori e quantità.")
                 return
                 
+            # Process stock_type and prefix ID if it's a residual
+            if selected_type == "Residuo (♻️)":
+                stock_type = "remnant"
+                if not item_id.startswith("S_REC_"):
+                    item_id = f"S_REC_{item_id}"
+            else:
+                stock_type = "semilavorato_bar"
+                if item_id.startswith("S_REC_"):
+                    item_id = item_id[6:]
+
             if not is_edit or item_id != current_item["id"]:
                 if any(s["id"] == item_id for s in semis):
                     messagebox.showerror("Errore ID", f"Un semilavorato con ID '{item_id}' è già presente in magazzino.")
@@ -3792,7 +3815,8 @@ Lo "Sfrido" impostato nella configurazione (es. 10 mm) è un margine aggiunto al
                 "color_code": cc,
                 "color_desc": cd,
                 "has_grain": has_grain,
-                "quantity": q
+                "quantity": q,
+                "stock_type": stock_type
             }
             
             if is_edit:

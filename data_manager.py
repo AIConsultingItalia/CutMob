@@ -1,6 +1,7 @@
 import os
 import json
 import csv
+import copy
 
 class DataManager:
     def __init__(self, db_filename="database.json"):
