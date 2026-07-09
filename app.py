@@ -3998,7 +3998,19 @@ Lo "Sfrido" impostato nella configurazione (es. 10 mm) è un margine aggiunto al
 
         # Griglia intestazioni
         headers = []
-        if source_type in ("barre", "semilavorati"):
+        if source_type == "semilavorati":
+            headers = [
+                ("ID (Univoco)", 100),
+                ("Larghezza (W mm)", 100),
+                ("Altezza (H mm)", 100),
+                ("Spessore (mm)", 90),
+                ("Cod. Colore", 90),
+                ("Desc. Colore", 180),
+                ("Venatura (S/N)", 90),
+                ("Tipo", 90),
+                ("Quantità", 80)
+            ]
+        elif source_type == "barre":
             headers = [
                 ("ID (Univoco)", 100),
                 ("Larghezza (W mm)", 100),
@@ -4078,11 +4090,28 @@ Lo "Sfrido" impostato nella configurazione (es. 10 mm) è un margine aggiunto al
                 cb_grain.grid(row=row_idx, column=6, padx=1, pady=1, sticky="ew")
                 row_widgets["has_grain"] = cb_grain
                 
-                # Q
-                ent_q = ttk.Entry(scrollable_frame)
-                ent_q.insert(0, str(item.get("quantity", 1)))
-                ent_q.grid(row=row_idx, column=7, padx=1, pady=1, sticky="ew")
-                row_widgets["quantity"] = ent_q
+                if source_type == "semilavorati":
+                    # Tipo
+                    cb_type = ttk.Combobox(scrollable_frame, values=["Barra (📦)", "Residuo (♻️)"], state="readonly")
+                    st = item.get("stock_type", "semilavorato_bar")
+                    if st == "remnant" or item["id"].startswith("S_REC_"):
+                        cb_type.set("Residuo (♻️)")
+                    else:
+                        cb_type.set("Barra (📦)")
+                    cb_type.grid(row=row_idx, column=7, padx=1, pady=1, sticky="ew")
+                    row_widgets["stock_type_widget"] = cb_type
+                    
+                    # Q
+                    ent_q = ttk.Entry(scrollable_frame)
+                    ent_q.insert(0, str(item.get("quantity", 1)))
+                    ent_q.grid(row=row_idx, column=8, padx=1, pady=1, sticky="ew")
+                    row_widgets["quantity"] = ent_q
+                else:
+                    # Q (per barre standard)
+                    ent_q = ttk.Entry(scrollable_frame)
+                    ent_q.insert(0, str(item.get("quantity", 1)))
+                    ent_q.grid(row=row_idx, column=7, padx=1, pady=1, sticky="ew")
+                    row_widgets["quantity"] = ent_q
                 
             else: # pezzi
                 # Descrizione
@@ -4165,7 +4194,19 @@ Lo "Sfrido" impostato nella configurazione (es. 10 mm) è un margine aggiunto al
                         
                         if not item_id or w <= 0 or h <= 0 or t <= 0 or not cc or q <= 0:
                             raise ValueError("Campi obbligatori non validi.")
-                            
+                        
+                        stock_type = "semilavorato_bar"
+                        if source_type == "semilavorati":
+                            selected_type = r_widgets["stock_type_widget"].get()
+                            if selected_type == "Residuo (♻️)":
+                                stock_type = "remnant"
+                                if not item_id.startswith("S_REC_"):
+                                    item_id = f"S_REC_{item_id}"
+                            else:
+                                stock_type = "semilavorato_bar"
+                                if item_id.startswith("S_REC_"):
+                                    item_id = item_id[6:]
+
                         # Controllo univocità chiave
                         if item_id in used_ids_in_batch:
                             messagebox.showerror("Errore Duplicato", f"Riga {idx+1}: L'ID '{item_id}' è duplicato all'interno di questa stessa maschera.")
@@ -4181,7 +4222,7 @@ Lo "Sfrido" impostato nella configurazione (es. 10 mm) è un margine aggiunto al
                                 messagebox.showerror("Errore ID", f"Riga {idx+1}: L'ID '{item_id}' è già presente nel database (Semilavorati).")
                                 return
                                 
-                        new_records.append({
+                        rec = {
                             "id": item_id,
                             "width": w,
                             "height": h,
@@ -4190,7 +4231,10 @@ Lo "Sfrido" impostato nella configurazione (es. 10 mm) è un margine aggiunto al
                             "color_desc": cd,
                             "has_grain": has_grain,
                             "quantity": q
-                        })
+                        }
+                        if source_type == "semilavorati":
+                            rec["stock_type"] = stock_type
+                        new_records.append(rec)
                     else: # pezzi
                         desc = r_widgets["descrizione"].get().strip()
                         w = float(r_widgets["width"].get().replace(",", "."))
