@@ -12,6 +12,57 @@ LICENSE_PATH = os.path.join(DB_DIR, "licenza.key")
 CONFIG_PATH = os.path.join(DB_DIR, "config.json")
 DATABASE_PATH = os.path.join(DB_DIR, "database.json")
 
+def merge_configs(existing_path, default_config):
+    import json
+    import base64
+    key = b"CutMobSecurityKey2026!"
+    try:
+        with open(existing_path, "r", encoding="utf-8") as f:
+            content = f.read().strip()
+        try:
+            obfuscated_bytes = base64.b64decode(content)
+            decrypted = bytearray()
+            for i in range(len(obfuscated_bytes)):
+                decrypted.append(obfuscated_bytes[i] ^ key[i % len(key)])
+            user_config = json.loads(decrypted.decode("utf-8"))
+        except Exception:
+            user_config = json.loads(content)
+    except Exception:
+        user_config = {}
+
+    updated = False
+    for k, v in default_config.items():
+        if k not in user_config:
+            user_config[k] = v
+            updated = True
+            
+    if updated or not os.path.exists(existing_path):
+        data_bytes = json.dumps(user_config, indent=4).encode("utf-8")
+        obfuscated = bytearray()
+        for i in range(len(data_bytes)):
+            obfuscated.append(data_bytes[i] ^ key[i % len(key)])
+        obfuscated_str = base64.b64encode(obfuscated).decode("utf-8")
+        with open(existing_path, "w", encoding="utf-8") as f:
+            f.write(obfuscated_str)
+
+def merge_databases(existing_path, default_db):
+    import json
+    try:
+        with open(existing_path, "r", encoding="utf-8") as f:
+            user_db = json.load(f)
+    except Exception:
+        user_db = {}
+        
+    updated = False
+    for k, v in default_db.items():
+        if k not in user_db:
+            user_db[k] = v
+            updated = True
+            
+    if updated:
+        with open(existing_path, "w", encoding="utf-8") as f:
+            json.dump(user_db, f, indent=4)
+
 class InstallerApp:
     def __init__(self, root):
         self.root = root
@@ -167,47 +218,36 @@ class InstallerApp:
                     if i % 10 == 0:
                         self.root.update()
                         
-            # Se è una nuova installazione, scriviamo un DB vuoto e config vuota se non esistono
-            if not self.is_update:
-                self.lbl_progress_status.config(text="Configurazione iniziale...")
-                self.root.update()
-                
-                if not os.path.exists(DATABASE_PATH):
-                    import json
-                    with open(DATABASE_PATH, "w", encoding="utf-8") as f:
-                        json.dump({"barre": [], "semilavorati": [], "commesse": []}, f, indent=4)
-                        
-                if not os.path.exists(CONFIG_PATH):
-                    import json
-                    default_config = {
-                        "db_type": "local",
-                        "local_path": DATABASE_PATH,
-                        "sql_type": "MySQL",
-                        "sql_host": "127.0.0.1",
-                        "sql_port": 3306,
-                        "sql_user": "",
-                        "sql_password": "",
-                        "sql_database": "cutmob",
-                        "default_kerf": 5.0,
-                        "default_rifilo_h": 0.0,
-                        "default_rifilo_v": 0.0,
-                        "default_sfrido": 10.0,
-                        "default_macchina": "sezionatrice",
-                        "client_name": "",
-                        "client_cf_piva": "",
-                        "client_email": "",
-                        "license_enabled": True
-                    }
-                    # Offusca per sicurezza
-                    key = b"CutMobSecurityKey2026!"
-                    data_bytes = json.dumps(default_config, indent=4).encode("utf-8")
-                    obfuscated = bytearray()
-                    for i in range(len(data_bytes)):
-                        obfuscated.append(data_bytes[i] ^ key[i % len(key)])
-                    import base64
-                    obfuscated_str = base64.b64encode(obfuscated).decode("utf-8")
-                    with open(CONFIG_PATH, "w", encoding="utf-8") as f:
-                        f.write(obfuscated_str)
+            # Configurazione iniziale e allineamento (sia per nuove installazioni che per aggiornamenti)
+            self.lbl_progress_status.config(text="Configurazione dei dati...")
+            self.root.update()
+            
+            default_db = {"barre": [], "semilavorati": [], "commesse": []}
+            default_config = {
+                "db_type": "local",
+                "local_path": DATABASE_PATH,
+                "sql_type": "MySQL",
+                "sql_host": "127.0.0.1",
+                "sql_port": 3306,
+                "sql_user": "",
+                "sql_password": "",
+                "sql_database": "cutmob",
+                "default_kerf": 5.0,
+                "default_rifilo_h": 0.0,
+                "default_rifilo_v": 0.0,
+                "default_sfrido": 10.0,
+                "default_macchina": "sezionatrice",
+                "client_name": "",
+                "client_cf_piva": "",
+                "client_email": "",
+                "license_enabled": True
+            }
+            
+            # Esegui il merge/creazione del database
+            merge_databases(DATABASE_PATH, default_db)
+            
+            # Esegui il merge/creazione della configurazione
+            merge_configs(CONFIG_PATH, default_config)
                         
             self.progress_var.set(100)
             self.lbl_progress_status.config(text="Completato!")
