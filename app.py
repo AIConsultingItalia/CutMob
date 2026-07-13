@@ -935,6 +935,7 @@ class CutMobApp:
 
     def check_license_startup(self):
         from license_manager import verifica_chiave_licenza
+        from datetime import datetime
         
         config = self.data_manager.config
         license_enabled = config.get("license_enabled", True)
@@ -953,6 +954,22 @@ class CutMobApp:
             is_valid, msg, lic_data = verifica_chiave_licenza(key_str, client_name, client_cf_piva)
             
         if is_valid:
+            # Controllo anti-manomissione orologio di sistema
+            today_str = datetime.now().strftime("%Y-%m-%d")
+            last_run = config.get("last_run_date", "")
+            
+            if last_run and today_str < last_run:
+                messagebox.showerror(
+                    "Errore Licenza", 
+                    "Rilevata alterazione dell'orologio di sistema!\n"
+                    "Il programma verrà chiuso. Ripristinare l'ora corretta."
+                )
+                return False
+                
+            # Aggiorna la data dell'ultimo avvio corretto
+            config["last_run_date"] = max(today_str, last_run) if last_run else today_str
+            self.data_manager.save_config(config)
+            
             exp_date = lic_data.get("data_fine", "")
             self.root.title(f"CutMob - Ottimizzatore di Taglio (Licenza attiva fino a {exp_date})")
             return True
