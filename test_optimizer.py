@@ -2093,7 +2093,109 @@ def test_grain_rotation_and_selection():
     
     print("=== TEST LOGICHE ROTAZIONE E DIREZIONE VENATURA COMPLETATO CON SUCCESSO! ===")
 
+def test_bar_cutting_logic_vs_for_reduced_width():
+    print("\n=== AVVIO TEST TAGLIO ORIZZONTALE PRIMA DI RIFILO SU BARRA (1 ANTA) ===")
+    opt = CuttingOptimizer(kerf=5.0)
+    stocks = [
+        {
+            "id": "B_BAR_597",
+            "width": 2800.0,
+            "height": 597.0,
+            "thickness": 18.0,
+            "color_code": "U708",
+            "color_desc": "Grigio",
+            "stock_type": "semilavorato_bar"
+        }
+    ]
+    demands = [
+        {
+            "descrizione": "Anta Ridotta 717x580",
+            "width": 580.0,  # Larghezza
+            "height": 717.0, # Altezza
+            "thickness": 18.0,
+            "color_code": "U708",
+            "color_desc": "Grigio",
+            "quantity": 1
+        }
+    ]
+    res = opt.optimize(stocks, demands, respect_grain=True, group_std_heights={"18.0mm_U708": [597.0]})
+    g = res["gruppi"]["18.0mm_U708"]
+    
+    assert len(g["unplaced_pieces"]) == 0
+    ub = g["used_boards"][0]
+    
+    cuts = ub["cuts"]
+    print("Tagli registrati (1 anta):", cuts)
+    
+    v_cuts = [c for c in cuts if c["type"] == "V"]
+    h_cuts = [c for c in cuts if c["type"] == "H"]
+    
+    assert len(v_cuts) >= 1, "Manca il taglio verticale"
+    assert len(h_cuts) >= 1, "Manca il taglio orizzontale"
+    
+    first_v_cut = sorted(v_cuts, key=lambda c: c["step"])[0]
+    assert first_v_cut["x1"] == 717.0, f"Il taglio verticale dovrebbe essere a X=717, trovato {first_v_cut['x1']}"
+    assert first_v_cut["y2"] == 597.0, f"Il taglio verticale dovrebbe tagliare l'intera altezza (597), trovato y2={first_v_cut['y2']}"
+    
+    first_h_cut = sorted(h_cuts, key=lambda c: c["step"])[0]
+    assert first_h_cut["y1"] == 580.0, f"Il taglio orizzontale dovrebbe essere a Y=580, trovato {first_h_cut['y1']}"
+    assert first_h_cut["x2"] == 717.0, f"Il taglio orizzontale dovrebbe limitarsi a X=717, trovato x2={first_h_cut['x2']}"
+    
+    new_semis = ub["new_semilavorati"]
+    print("Nuovi semilavorati (1 anta):", new_semis)
+    bar_remnant = next((s for s in new_semis if s["width"] == 2800 - 717 - 5), None)
+    assert bar_remnant is not None, "Residuo barra principale non generato!"
+    assert bar_remnant["height"] == 597.0, f"Il residuo della barra dovrebbe avere altezza 597.0, trovato {bar_remnant['height']}"
+
+    print("=== AVVIO TEST TAGLIO ORIZZONTALE PRIMA DI RIFILO SU BARRA (3 ANTE) ===")
+    demands_3 = [
+        {
+            "descrizione": "Anta Ridotta 717x580",
+            "width": 580.0,  # Larghezza
+            "height": 717.0, # Altezza
+            "thickness": 18.0,
+            "color_code": "U708",
+            "color_desc": "Grigio",
+            "quantity": 3
+        }
+    ]
+    res_3 = opt.optimize(stocks, demands_3, respect_grain=True, group_std_heights={"18.0mm_U708": [597.0]})
+    g_3 = res_3["gruppi"]["18.0mm_U708"]
+    
+    assert len(g_3["unplaced_pieces"]) == 0
+    ub_3 = g_3["used_boards"][0]
+    cuts_3 = ub_3["cuts"]
+    print("Tagli registrati (3 ante):", cuts_3)
+    
+    # Dovremmo avere esattamente 4 tagli
+    assert len(cuts_3) == 4, f"Ci dovrebbero essere esattamente 4 tagli, trovati {len(cuts_3)}"
+    
+    # 1. Taglio verticale per separare il blocco a X=2161 (level=1)
+    cut1 = cuts_3[0]
+    assert cut1["type"] == "V" and cut1["x1"] == 2161.0 and cut1["y2"] == 597.0 and cut1["level"] == 1, f"Taglio 1 errato: {cut1}"
+    
+    # 2. Taglio orizzontale continuo a Y=580 per lunghezza 2161 (level=2)
+    cut2 = cuts_3[1]
+    assert cut2["type"] == "H" and cut2["y1"] == 580.0 and cut2["x1"] == 0.0 and cut2["x2"] == 2161.0 and cut2["level"] == 2, f"Taglio 2 errato: {cut2}"
+    
+    # 3. Tagli verticali interni a X=717 e X=1439 (level=3)
+    cut3 = cuts_3[2]
+    assert cut3["type"] == "V" and cut3["x1"] == 717.0 and cut3["y2"] == 580.0 and cut3["level"] == 3, f"Taglio 3 errato: {cut3}"
+    
+    cut4 = cuts_3[3]
+    assert cut4["type"] == "V" and cut4["x1"] == 1439.0 and cut4["y2"] == 580.0 and cut4["level"] == 3, f"Taglio 4 errato: {cut4}"
+    
+    # Verifichiamo che il residuo rimanga di altezza 597 e larghezza 2800 - 2161 - 5 = 634
+    new_semis_3 = ub_3["new_semilavorati"]
+    print("Nuovi semilavorati (3 ante):", new_semis_3)
+    bar_remnant_3 = next((s for s in new_semis_3 if s["width"] == 634.0), None)
+    assert bar_remnant_3 is not None, "Residuo barra principale per 3 ante non generato!"
+    assert bar_remnant_3["height"] == 597.0, f"Il residuo dovrebbe avere altezza 597.0, trovato {bar_remnant_3['height']}"
+
+    print("=== TEST TAGLIO ORIZZONTALE PRIMA DI RIFILO SU BARRA COMPLETATO CON SUCCESSO! ===")
+
 if __name__ == "__main__":
+    test_bar_cutting_logic_vs_for_reduced_width()
     test_grain_rotation_and_selection()
     test_settings_protection_and_tabs()
     test_new_warehouse_selection_logic()

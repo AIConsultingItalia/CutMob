@@ -333,7 +333,7 @@ class CuttingOptimizer:
                     can_fit = False
                     for w, h in orientations:
                         if w <= w_b and h <= h_b:
-                            if self._is_height_allowed(board, h, std_heights):
+                            if self._is_height_allowed(board, h, std_heights, is_used=False):
                                 can_fit = True
                                 break
                         
@@ -447,7 +447,7 @@ class CuttingOptimizer:
 
         # 1. Prova a inserire il pezzo in uno dei ripiani (shelves) esistenti
         for w, h in orientations:
-            if not self._is_height_allowed(board, h, std_heights):
+            if not self._is_height_allowed(board, h, std_heights, is_used=True):
                 continue
             for shelf in ub["shelves"]:
                 needed_w = w if not shelf["placed_count"] else w + self.kerf
@@ -474,7 +474,7 @@ class CuttingOptimizer:
 
         # 2. Se non entra in nessun ripiano, prova a creare un NUOVO ripiano
         for w, h in orientations:
-            if not self._is_height_allowed(board, h, std_heights):
+            if not self._is_height_allowed(board, h, std_heights, is_used=True):
                 continue
             current_y = 0
             if ub["shelves"]:
@@ -528,7 +528,7 @@ class CuttingOptimizer:
                         
                     for w, h in orientations:
                         if w <= r["w"] and h <= r["h"]:
-                            if self._is_height_allowed(ub["board"], h, std_heights):
+                            if self._is_height_allowed(ub["board"], h, std_heights, is_used=True):
                                 # Calcola lo score a seconda dell'euristica scelta
                                 if rect_choice == "BSSF":
                                     score = min(r["w"] - w, r["h"] - h)
@@ -579,7 +579,7 @@ class CuttingOptimizer:
                     can_fit = False
                     for w, h in orientations:
                         if w <= w_b and h <= h_b:
-                            if self._is_height_allowed(board, h, std_heights):
+                            if self._is_height_allowed(board, h, std_heights, is_used=False):
                                 can_fit = True
                                 best_orientation = (w, h)
                                 break
@@ -628,6 +628,64 @@ class CuttingOptimizer:
             ub["waste_area"] = round(board_area - ub["used_area"], 2)
             ub["efficiency"] = round((ub["used_area"] / board_area * 100), 2)
             
+            is_bar = board.get("stock_type") in ["semilavorato_bar", "remnant"]
+            if is_bar and ub["placed_pieces"]:
+                ub["cuts"] = []
+                bw = board["width"]
+                bh = board["height"]
+                pieces = sorted(ub["placed_pieces"], key=lambda p: p["x"])
+                
+                # Raggruppiamo i pezzi adiacenti che hanno la stessa altezza
+                groups = []
+                current_group = [pieces[0]]
+                for p in pieces[1:]:
+                    if abs(p["h"] - current_group[0]["h"]) < 1e-2:
+                        current_group.append(p)
+                    else:
+                        groups.append(current_group)
+                        current_group = [p]
+                groups.append(current_group)
+                
+                # Generiamo i tagli ottimizzati per ciascun gruppo
+                for group in groups:
+                    x_start = group[0]["x"]
+                    x_end = group[-1]["x"] + group[-1]["w"]
+                    h_group = group[0]["h"]
+                    
+                    # 1. Taglio verticale per separare il gruppo dal resto della barra
+                    if x_end < bw - 1e-2:
+                        ub["cuts"].append({
+                            "type": "V",
+                            "x1": x_end,
+                            "y1": 0.0,
+                            "x2": x_end,
+                            "y2": bh,
+                            "level": 1
+                        })
+                        
+                    # 2. Taglio orizzontale di rifilo unico per l'intero gruppo
+                    if bh - h_group >= self.kerf:
+                        ub["cuts"].append({
+                            "type": "H",
+                            "x1": x_start,
+                            "y1": h_group,
+                            "x2": x_end,
+                            "y2": h_group,
+                            "level": 2
+                        })
+                        
+                    # 3. Tagli verticali interni per separare i singoli pezzi
+                    for p in group[:-1]:
+                        cut_x = p["x"] + p["w"]
+                        ub["cuts"].append({
+                            "type": "V",
+                            "x1": cut_x,
+                            "y1": 0.0,
+                            "x2": cut_x,
+                            "y2": h_group,
+                            "level": 3
+                        })
+            
             ub["new_semilavorati"] = []
             for r in ub["free_rectangles"]:
                 if r["w"] >= min_semi_size[0] and r["h"] >= min_semi_size[1]:
@@ -646,7 +704,10 @@ class CuttingOptimizer:
     def _split_free_rectangle(self, ub, r, w, h, split_heuristic, level=1):
         rx, ry, rw, rh = r["x"], r["y"], r["w"], r["h"]
         
-        if split_heuristic == "SAS":
+        is_bar = ub.get("board", {}).get("stock_type") in ["semilavorato_bar", "remnant"]
+        if is_bar:
+            split_style = "VS"
+        elif split_heuristic == "SAS":
             split_style = "VS" if (rw - w) < (rh - h) else "HS"
         elif split_heuristic == "LAS":
             split_style = "VS" if (rw - w) > (rh - h) else "HS"
@@ -732,12 +793,22 @@ class CuttingOptimizer:
                     "level": level + 1
                 })
 
-    def _is_height_allowed(self, board, piece_h, std_heights):
+    def _is_height_allowed(self, board, piece_h, std_heights, is_used=False):
         """
         Verifica se la larghezza dell'anta (rappresentata da piece_h nel layout orizzontale)
         è consentita sulla barra o residuo in base alle altezze standard.
         """
         if not board or board.get("stock_type") not in ["semilavorato_bar", "remnant"] or not std_heights:
+            return True
+
+        board_h = float(board.get("height", 0))
+
+        # Se il pezzo supera l'altezza fisica della barra corrente, ovviamente non ci sta
+        if piece_h > board_h:
+            return False
+
+        # Se la barra è già in uso, qualsiasi pezzo che ci sta fisicamente è ammesso
+        if is_used:
             return True
             
         # Trova la larghezza standard target per il pezzo (piece_h)
@@ -750,7 +821,6 @@ class CuttingOptimizer:
             piece_target = max(std_heights)
             
         # Trova la larghezza standard target per la barra/residuo (board)
-        board_h = float(board.get("height", 0))
         board_target = None
         for sh in std_heights:
             if board_h <= sh:
@@ -759,13 +829,9 @@ class CuttingOptimizer:
         if board_target is None:
             board_target = max(std_heights)
             
-        # Non possiamo inserire il pezzo se la barra appartiene ad uno standard superiore
+        # Non possiamo iniziare una nuova barra se appartiene ad uno standard superiore
         # (es. pezzo da 297 su barra da 897)
         if board_target > piece_target:
-            return False
-            
-        # Se il pezzo supera l'altezza fisica della barra corrente, ovviamente non ci sta
-        if piece_h > board_h:
             return False
             
         return True
@@ -793,7 +859,7 @@ class CuttingOptimizer:
                         
                     for w, h in orientations:
                         if w <= r["w"] and h <= r["h"]:
-                            if self._is_height_allowed(ub["board"], h, std_heights):
+                            if self._is_height_allowed(ub["board"], h, std_heights, is_used=True):
                                 # Euristica Best Short Side Fit (BSSF)
                                 score = min(r["w"] - w, r["h"] - h)
                                 if score < best_score:
@@ -839,7 +905,7 @@ class CuttingOptimizer:
                     can_fit = False
                     for w, h in orientations:
                         if w <= w_b and h <= h_b:
-                            if self._is_height_allowed(board, h, std_heights):
+                            if self._is_height_allowed(board, h, std_heights, is_used=False):
                                 can_fit = True
                                 best_orientation = (w, h)
                                 break

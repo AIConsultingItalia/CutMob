@@ -1545,24 +1545,8 @@ Lo "Sfrido" impostato nella configurazione (es. 10 mm) è un margine aggiunto al
         if not board or not std_heights:
             return True
             
-        piece_target = None
-        for sh in std_heights:
-            if piece_h <= sh:
-                piece_target = sh
-                break
-        if piece_target is None:
-            piece_target = max(std_heights)
-            
         board_h = float(board.get("height", 0))
-        board_target = None
-        for sh in std_heights:
-            if board_h <= sh:
-                board_target = sh
-                break
-        if board_target is None:
-            board_target = max(std_heights)
-            
-        if board_target > piece_target:
+        if piece_h > board_h:
             return False
         return True
 
