@@ -10,7 +10,7 @@ from renderer import LayoutRenderer
 class CutMobApp:
     def __init__(self, root):
         self.root = root
-        self.APP_VERSION = "2.1.4"
+        self.APP_VERSION = "2.1.5"
         self.root.title("CutMob - Ottimizzatore di Taglio Pannelli")
         self.root.geometry("1100x700")
         self.root.minsize(900, 600)
@@ -5115,7 +5115,15 @@ class DbSettingsDialog(tk.Toplevel):
                         shutil.copy2(os.path.join("dist", "Setup_CutMob.exe"), os.path.join("dist", f"Setup_CutMob_{target_version}.exe"))
                     except Exception:
                         pass
-                    messagebox.showinfo("Compilazione Completata", f"Compilazione Windows (v{target_version}) completata con successo!\nIl file Setup_CutMob_{target_version}.exe si trova nella cartella dist/")
+                    messagebox.showinfo("Compilazione Completata", f"Compilazione Windows (v{target_version}) completata con successo!\nIl file Setup_CutMob_{target_version}.exe si trova nella cartella dist/\n\nLa cartella dist/ verrà aperta automaticamente.")
+                    try:
+                        os.startfile("dist")
+                    except Exception:
+                        try:
+                            import subprocess
+                            subprocess.Popen(["explorer", "dist"])
+                        except Exception:
+                            pass
                 else:
                     messagebox.showerror("Errore Compilazione", f"Errore durante la compilazione:\n{res.stderr or res.stdout}")
                     
