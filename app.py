@@ -10,6 +10,7 @@ from renderer import LayoutRenderer
 class CutMobApp:
     def __init__(self, root):
         self.root = root
+        self.APP_VERSION = "2.0.0"
         self.root.title("CutMob - Ottimizzatore di Taglio Pannelli")
         self.root.geometry("1100x700")
         self.root.minsize(900, 600)
@@ -323,7 +324,7 @@ class CutMobApp:
         lbl_manual_shortcut.bind("<Button-1>", lambda e: self.show_help_dialog())
         
         # Footer
-        lbl_footer = ttk.Label(sidebar, text="CutMob v2.0 - Premium", font=("Segoe UI", 8, "italic"), foreground="#bdc3c7", background=self.bg_card)
+        lbl_footer = ttk.Label(sidebar, text=f"CutMob v{self.APP_VERSION} - Premium", font=("Segoe UI", 8, "italic"), foreground="#bdc3c7", background=self.bg_card)
         lbl_footer.pack(side=tk.BOTTOM, pady=2)
         
         # --- AREA CONTENUTO (Tabs) ---
@@ -981,7 +982,7 @@ class CutMobApp:
         if not self.latest_version_info:
             return
         
-        current_version = "2.0" # La versione attuale visualizzata in barra
+        current_version = self.APP_VERSION # La versione attuale visualizzata in barra
         latest_version = self.latest_version_info.get("version", "2.0")
         
         def parse_ver(v):
@@ -4872,6 +4873,15 @@ class DbSettingsDialog(tk.Toplevel):
             self.ent_client_name.configure(state="disabled")
             self.ent_client_cf_piva.configure(state="disabled")
             
+        # Versione Software
+        ttk.Label(tab_client, text="Versione Software:").grid(row=5, column=0, sticky=tk.W, pady=8)
+        lbl_version_val = ttk.Label(tab_client, text=f"{self.app.APP_VERSION} (Attiva)", font=("Segoe UI", 10, "bold"))
+        lbl_version_val.grid(row=5, column=1, sticky=tk.W, pady=8, padx=10)
+        
+        # Forza Aggiornamento
+        btn_force_update = ttk.Button(tab_client, text="🔄 Verifica / Forza Aggiornamento", command=self.force_update_check)
+        btn_force_update.grid(row=6, column=1, sticky=tk.W, pady=8, padx=10)
+            
         # --- CONFIGURAZIONE TAB GENERAZIONE RILASCIO ---
         ttk.Label(tab_build, text="STRUMENTI DI RILASCIO", font=("Segoe UI", 11, "bold"), foreground=self.accent_color).pack(anchor=tk.W, pady=(0, 10))
         ttk.Label(tab_build, text="Genera i pacchetti di installazione/aggiornamento dell'applicazione per la distribuzione sul panel.", font=("Segoe UI", 9, "italic"), wraplength=440, justify=tk.LEFT).pack(anchor=tk.W, pady=(0, 20))
@@ -5077,6 +5087,47 @@ class DbSettingsDialog(tk.Toplevel):
             return
             
         messagebox.showinfo("Compilazione macOS", "La compilazione per macOS è disponibile eseguendo il programma da un sistema Apple Mac.")
+
+    def force_update_check(self):
+        import urllib.request
+        import json
+        import sys
+        from tkinter import messagebox
+        
+        try:
+            os_name = "mac" if sys.platform == "darwin" else "windows"
+            url = f"https://panel.aiconsultingitalia.com/panel/panel_cutmob/api.php?action=get_latest_version&prodotto=CutMob&os={os_name}"
+            req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+            with urllib.request.urlopen(req, timeout=5) as response:
+                res_data = json.loads(response.read().decode('utf-8'))
+                if res_data.get("status") == "success":
+                    info = res_data.get("data")
+                    latest_version = info.get("version", "2.0.0")
+                    current_version = self.app.APP_VERSION
+                    
+                    def parse_ver(v):
+                        try:
+                            return [int(x) for x in v.strip('v').split('.')]
+                        except Exception:
+                            return [0, 0]
+                            
+                    self.app.latest_version_info = info
+                    
+                    if parse_ver(latest_version) > parse_ver(current_version):
+                        msg = f"È disponibile una nuova versione: v{latest_version} (versione installata: v{current_version}).\nVuoi scaricare e installare l'aggiornamento ora?"
+                        if messagebox.askyesno("Aggiornamento Disponibile", msg):
+                            self.app.run_update_process()
+                            self.destroy()
+                    else:
+                        msg = f"L'applicazione è già aggiornata alla versione più recente (v{current_version}).\n\nVuoi comunque forzare il download e la reinstallazione dell'ultimo pacchetto dal server?"
+                        if messagebox.askyesno("Nessun Aggiornamento Necessario", msg):
+                            self.app.run_update_process()
+                            self.destroy()
+                else:
+                    messagebox.showerror("Errore", f"Risposta del server non valida: {res_data.get('message')}")
+        except Exception as e:
+            messagebox.showerror("Errore di connessione", f"Impossibile connettersi al server di aggiornamento:\n{e}")
+
 
 
 class FabbisognoDialog(tk.Toplevel):
