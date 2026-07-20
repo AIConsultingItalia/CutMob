@@ -4902,6 +4902,16 @@ class DbSettingsDialog(tk.Toplevel):
         btn_build_mac = ttk.Button(tab_build, text="🍎 Genera Pacchetto macOS (.dmg)", command=self.build_mac_installer)
         btn_build_mac.pack(fill=tk.X, pady=8)
         
+        # Sezione Chiave di Attivazione
+        ttk.Label(tab_build, text="CHIAVE DI ATTIVAZIONE ATTIVA", font=("Segoe UI", 10, "bold"), foreground=self.accent_color).pack(anchor=tk.W, pady=(20, 5))
+        current_key = self.app.data_manager.load_license_key() or ""
+        self.txt_license_key = tk.Text(tab_build, height=3, font=("Consolas", 9), wrap=tk.CHAR)
+        self.txt_license_key.insert(tk.END, current_key)
+        self.txt_license_key.pack(fill=tk.X, pady=5)
+        
+        btn_update_key = ttk.Button(tab_build, text="🔑 Salva / Aggiorna Chiave Licenza", command=self.update_license_key_from_settings)
+        btn_update_key.pack(anchor=tk.E, pady=5)
+        
         # Bottoni Azione (in main_frame, posizionati in fondo)
         f_buttons = ttk.Frame(main_frame)
         f_buttons.pack(fill=tk.X, side=tk.BOTTOM, pady=(5, 0))
@@ -5164,6 +5174,44 @@ class DbSettingsDialog(tk.Toplevel):
                     messagebox.showerror("Errore", f"Risposta del server non valida: {res_data.get('message')}")
         except Exception as e:
             messagebox.showerror("Errore di connessione", f"Impossibile connettersi al server di aggiornamento:\n{e}")
+
+    def update_license_key_from_settings(self):
+        from license_manager import verifica_chiave_licenza
+        from tkinter import messagebox
+        
+        new_key = self.txt_license_key.get("1.0", tk.END).strip()
+        if not new_key:
+            messagebox.showerror("Errore", "La chiave di licenza non può essere vuota.")
+            return
+            
+        valida, err_msg, data = verifica_chiave_licenza(new_key)
+        if valida:
+            self.app.data_manager.save_license_key(new_key)
+            
+            # Aggiorna i dati del cliente nella configurazione
+            config = self.app.data_manager.config
+            config["client_name"] = data.get("ragione_sociale", "")
+            config["client_cf_piva"] = data.get("partita_iva", "")
+            config["license_enabled"] = True
+            self.app.data_manager.save_config(config)
+            
+            self.app.update_client_display()
+            
+            # Aggiorna anche i campi di testo visibili in "Dati Cliente"
+            self.ent_client_name.configure(state="normal")
+            self.ent_client_name.delete(0, tk.END)
+            self.ent_client_name.insert(0, data.get("ragione_sociale", ""))
+            self.ent_client_name.configure(state="disabled")
+            
+            self.ent_client_cf_piva.configure(state="normal")
+            self.ent_client_cf_piva.delete(0, tk.END)
+            self.ent_client_cf_piva.insert(0, data.get("partita_iva", ""))
+            self.ent_client_cf_piva.configure(state="disabled")
+            
+            messagebox.showinfo("Successo", f"Chiave di licenza salvata ed attivata con successo!\nCliente: {data.get('ragione_sociale')}\nScadenza: {data.get('data_fine')}")
+        else:
+            messagebox.showerror("Errore Licenza", f"La chiave inserita non è valida:\n{err_msg}")
+
 
 
 
