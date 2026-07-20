@@ -4886,7 +4886,15 @@ class DbSettingsDialog(tk.Toplevel):
             
         # --- CONFIGURAZIONE TAB GENERAZIONE RILASCIO ---
         ttk.Label(tab_build, text="STRUMENTI DI RILASCIO", font=("Segoe UI", 11, "bold"), foreground=self.accent_color).pack(anchor=tk.W, pady=(0, 10))
-        ttk.Label(tab_build, text="Genera i pacchetti di installazione/aggiornamento dell'applicazione per la distribuzione sul panel.", font=("Segoe UI", 9, "italic"), wraplength=440, justify=tk.LEFT).pack(anchor=tk.W, pady=(0, 20))
+        ttk.Label(tab_build, text="Genera i pacchetti di installazione/aggiornamento dell'applicazione per la distribuzione sul panel.", font=("Segoe UI", 9, "italic"), wraplength=440, justify=tk.LEFT).pack(anchor=tk.W, pady=(0, 15))
+        
+        # Campo versione da compilare
+        f_version = ttk.Frame(tab_build)
+        f_version.pack(fill=tk.X, pady=10)
+        ttk.Label(f_version, text="Versione da rilasciare (es. 2.1.4):", font=("Segoe UI", 9, "bold")).pack(side=tk.LEFT, padx=(0, 10))
+        self.ent_build_version = ttk.Entry(f_version, width=15)
+        self.ent_build_version.insert(0, self.app.APP_VERSION)
+        self.ent_build_version.pack(side=tk.LEFT)
         
         btn_build_win = ttk.Button(tab_build, text="💻 Genera Pacchetto Windows (.exe)", command=self.build_windows_installer)
         btn_build_win.pack(fill=tk.X, pady=8)
@@ -5058,21 +5066,41 @@ class DbSettingsDialog(tk.Toplevel):
         from tkinter import messagebox
         import threading
         
-        if not messagebox.askyesno("Compilazione Windows", "Vuoi avviare la compilazione del pacchetto di installazione Windows?\nQuesta operazione richiederà alcuni istanti."):
+        target_version = self.ent_build_version.get().strip()
+        if not target_version:
+            messagebox.showerror("Errore", "Specificare una versione valida prima di compilare.")
+            return
+
+        if not messagebox.askyesno("Compilazione Windows", f"Vuoi impostare il programma alla versione {target_version} e avviare la compilazione del pacchetto di installazione Windows?\nQuesta operazione richiederà alcuni istanti."):
             return
             
         try:
+            # Aggiorna versione nel codice sorgente di app.py prima di compilare
+            app_py_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "app.py")
+            if os.path.exists(app_py_path):
+                with open(app_py_path, "r", encoding="utf-8") as f:
+                    lines = f.readlines()
+                updated = False
+                for i, line in enumerate(lines):
+                    if "self.APP_VERSION =" in line:
+                        lines[i] = f'        self.APP_VERSION = "{target_version}"\n'
+                        updated = True
+                        break
+                if updated:
+                    with open(app_py_path, "w", encoding="utf-8") as f:
+                        f.writelines(lines)
+            
             script_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "build_installer.py")
             if not os.path.exists(script_path):
                 messagebox.showerror("Errore", f"Script di compilazione non trovato: {script_path}")
                 return
                 
-            messagebox.showinfo("Compilazione avviata", "La compilazione è stata avviata in background.\nRiceverai una notifica al completamento.")
+            messagebox.showinfo("Compilazione avviata", f"Compilazione della versione {target_version} avviata in background.\nRiceverai una notifica al completamento.")
             
             def run_build():
                 res = subprocess.run(["python", script_path], capture_output=True, text=True)
                 if res.returncode == 0:
-                    messagebox.showinfo("Compilazione Completata", "Compilazione Windows completata con successo!\nIl file Setup_CutMob.exe si trova nella cartella dist/")
+                    messagebox.showinfo("Compilazione Completata", f"Compilazione Windows (v{target_version}) completata con successo!\nIl file Setup_CutMob.exe si trova nella cartella dist/")
                 else:
                     messagebox.showerror("Errore Compilazione", f"Errore durante la compilazione:\n{res.stderr or res.stdout}")
                     
