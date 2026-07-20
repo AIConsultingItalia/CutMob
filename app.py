@@ -4674,7 +4674,7 @@ class DbSettingsDialog(tk.Toplevel):
         super().__init__(parent)
         self.app = app
         self.title("Configurazione Database")
-        self.geometry("500x580")
+        self.geometry("680x600")
         self.resizable(False, False)
         self.grab_set()
         
