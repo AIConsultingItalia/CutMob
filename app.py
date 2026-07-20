@@ -52,6 +52,10 @@ class CutMobApp:
         self.update_client_display()
         self.update_import_features()
         
+        # Avvia il controllo degli aggiornamenti in asincrono
+        self.latest_version_info = None
+        self.check_for_updates_async()
+        
         # Associa i tasti globali
         self.root.bind_all("<F1>", self.show_help_dialog)
         self.root.bind_all("<F4>", self.toggle_cut_progression)
@@ -289,6 +293,17 @@ class CutMobApp:
         self.btn_export_pdf.pack(side=tk.LEFT, fill=tk.X, expand=True)
         self.btn_open_pdf_dir = ttk.Button(f_export_pdf, text="📂", width=3, command=self.open_pdf_dir, state=tk.DISABLED)
         self.btn_open_pdf_dir.pack(side=tk.RIGHT, padx=(5, 0))
+        
+        # Label per notifica aggiornamento disponibile (nascosto di default)
+        self.lbl_update_available = tk.Label(
+            sidebar, 
+            text="🔴 AGGIORNAMENTO DISPONIBILE", 
+            font=("Segoe UI", 9, "bold"), 
+            fg="#e84118", 
+            bg=self.bg_card,
+            cursor="hand2"
+        )
+        self.lbl_update_available.bind("<Button-1>", lambda e: self.prompt_and_run_update())
         
         # Info scorciatoia Manuale d'Uso e tasti rapidi (Box in evidenza)
         f_shortcuts = tk.Frame(sidebar, bg="#eef2f7", bd=1, relief="flat", highlightbackground="#cbd5e1", highlightthickness=1)
@@ -940,6 +955,124 @@ class CutMobApp:
             self.redraw_residui()
         except Exception:
             pass
+
+    def check_for_updates_async(self):
+        import threading
+        def run_check():
+            import urllib.request
+            import json
+            try:
+                # Determina l'OS corrente per l'aggiornamento
+                os_name = "mac" if sys.platform == "darwin" else "windows"
+                url = f"https://panel.aiconsultingitalia.com/panel/panel_cutmob/api.php?action=get_latest_version&prodotto=CutMob&os={os_name}"
+                req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+                with urllib.request.urlopen(req, timeout=5) as response:
+                    res_data = json.loads(response.read().decode('utf-8'))
+                    if res_data.get("status") == "success":
+                        info = res_data.get("data")
+                        self.latest_version_info = info
+                        self.root.after(0, self.evaluate_version_check)
+            except Exception as e:
+                print(f"Errore controllo versione: {e}")
+                
+        threading.Thread(target=run_check, daemon=True).start()
+
+    def evaluate_version_check(self):
+        if not self.latest_version_info:
+            return
+        
+        current_version = "2.0" # La versione attuale visualizzata in barra
+        latest_version = self.latest_version_info.get("version", "2.0")
+        
+        def parse_ver(v):
+            try:
+                return [int(x) for x in v.strip('v').split('.')]
+            except Exception:
+                return [0, 0]
+                
+        if parse_ver(latest_version) > parse_ver(current_version):
+            msg = f"Nuova versione disponibile (v{latest_version}).\nVuoi scaricare e installare l'aggiornamento ora?"
+            ans = messagebox.askyesno("Aggiornamento Disponibile", msg)
+            if ans:
+                self.run_update_process()
+            else:
+                self.show_update_available_label()
+
+    def show_update_available_label(self):
+        try:
+            self.lbl_update_available.pack(side=tk.BOTTOM, fill=tk.X, pady=(5, 5))
+            self.blink_update_label(True)
+        except Exception:
+            pass
+
+    def blink_update_label(self, state):
+        if not hasattr(self, 'lbl_update_available') or not self.lbl_update_available.winfo_exists():
+            return
+        color = "#e84118" if state else "#2f3640"
+        self.lbl_update_available.configure(fg=color)
+        self.root.after(800, lambda: self.blink_update_label(not state))
+
+    def prompt_and_run_update(self):
+        if self.latest_version_info:
+            latest_version = self.latest_version_info.get("version", "")
+            msg = f"Vuoi scaricare e installare la nuova versione di CutMob (v{latest_version}) adesso?"
+            if messagebox.askyesno("Aggiornamento", msg):
+                self.run_update_process()
+
+    def run_update_process(self):
+        # Finestra di progresso del download
+        progress_dialog = tk.Toplevel(self.root)
+        progress_dialog.title("CutMob - Download Aggiornamento")
+        progress_dialog.geometry("400x150")
+        progress_dialog.resizable(False, False)
+        progress_dialog.transient(self.root)
+        progress_dialog.grab_set()
+        
+        lbl_msg = tk.Label(progress_dialog, text="Download dell'aggiornamento in corso...", font=("Segoe UI", 10))
+        lbl_msg.pack(pady=20)
+        
+        progress = ttk.Progressbar(progress_dialog, mode="indeterminate", length=300)
+        progress.pack(pady=10)
+        progress.start(10)
+        
+        import threading
+        def download_and_restart():
+            import urllib.request
+            import shutil
+            import subprocess
+            import os
+            
+            try:
+                download_url = self.latest_version_info.get("url")
+                temp_dir = r"C:\CutMob\Temp"
+                os.makedirs(temp_dir, exist_ok=True)
+                
+                ext = ".dmg" if download_url.endswith(".dmg") else ".exe"
+                dest_file = os.path.join(temp_dir, "update_installer" + ext)
+                
+                req = urllib.request.Request(download_url, headers={'User-Agent': 'Mozilla/5.0'})
+                with urllib.request.urlopen(req, timeout=30) as response, open(dest_file, 'wb') as out_file:
+                    shutil.copyfileobj(response, out_file)
+                
+                progress_dialog.destroy()
+                
+                if ext == ".exe":
+                    messagebox.showinfo("Aggiornamento", "Download completato con successo!\nL'applicazione verrà chiusa per avviare l'installazione.")
+                    subprocess.Popen([dest_file], shell=True)
+                else:
+                    messagebox.showinfo("Aggiornamento", f"Download completato!\nIl file è stato scaricato in:\n{dest_file}\nAprilo per completare l'installazione.")
+                    if hasattr(os, 'startfile'):
+                        os.startfile(temp_dir)
+                    else:
+                        subprocess.Popen(['open', temp_dir])
+                
+                self.root.destroy()
+                sys.exit(0)
+            except Exception as e:
+                progress_dialog.destroy()
+                messagebox.showerror("Errore Aggiornamento", f"Si è verificato un errore durante il download: {e}")
+                
+        threading.Thread(target=download_and_restart, daemon=True).start()
 
     def check_license_startup(self):
         from license_manager import verifica_chiave_licenza
@@ -4579,6 +4712,10 @@ class DbSettingsDialog(tk.Toplevel):
         tab_client = ttk.Frame(self.notebook, padding=10)
         self.notebook.add(tab_client, text="Dati Cliente")
         
+        # 4. Tab Generazione Rilascio
+        tab_build = ttk.Frame(self.notebook, padding=10)
+        self.notebook.add(tab_build, text="Generazione Rilascio")
+        
         # Radio buttons per Tipo Db (nel tab_db)
         f_type = ttk.LabelFrame(tab_db, text="Tipo Database", padding=8)
         f_type.pack(fill=tk.X, pady=(0, 8))
@@ -4734,6 +4871,16 @@ class DbSettingsDialog(tk.Toplevel):
         if self.config.get("license_enabled", True):
             self.ent_client_name.configure(state="disabled")
             self.ent_client_cf_piva.configure(state="disabled")
+            
+        # --- CONFIGURAZIONE TAB GENERAZIONE RILASCIO ---
+        ttk.Label(tab_build, text="STRUMENTI DI RILASCIO", font=("Segoe UI", 11, "bold"), foreground=self.accent_color).pack(anchor=tk.W, pady=(0, 10))
+        ttk.Label(tab_build, text="Genera i pacchetti di installazione/aggiornamento dell'applicazione per la distribuzione sul panel.", font=("Segoe UI", 9, "italic"), wraplength=440, justify=tk.LEFT).pack(anchor=tk.W, pady=(0, 20))
+        
+        btn_build_win = ttk.Button(tab_build, text="💻 Genera Pacchetto Windows (.exe)", command=self.build_windows_installer)
+        btn_build_win.pack(fill=tk.X, pady=8)
+        
+        btn_build_mac = ttk.Button(tab_build, text="🍎 Genera Pacchetto macOS (.dmg)", command=self.build_mac_installer)
+        btn_build_mac.pack(fill=tk.X, pady=8)
         
         # Bottoni Azione (in main_frame, posizionati in fondo)
         f_buttons = ttk.Frame(main_frame)
@@ -4892,6 +5039,45 @@ class DbSettingsDialog(tk.Toplevel):
             self.destroy()
         else:
             messagebox.showerror("Errore", "Impossibile salvare il file di configurazione.")
+
+    def build_windows_installer(self):
+        import subprocess
+        import os
+        from tkinter import messagebox
+        import threading
+        
+        if not messagebox.askyesno("Compilazione Windows", "Vuoi avviare la compilazione del pacchetto di installazione Windows?\nQuesta operazione richiederà alcuni istanti."):
+            return
+            
+        try:
+            script_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "build_installer.py")
+            if not os.path.exists(script_path):
+                messagebox.showerror("Errore", f"Script di compilazione non trovato: {script_path}")
+                return
+                
+            messagebox.showinfo("Compilazione avviata", "La compilazione è stata avviata in background.\nRiceverai una notifica al completamento.")
+            
+            def run_build():
+                res = subprocess.run(["python", script_path], capture_output=True, text=True)
+                if res.returncode == 0:
+                    messagebox.showinfo("Compilazione Completata", "Compilazione Windows completata con successo!\nIl file Setup_CutMob.exe si trova nella cartella dist/")
+                else:
+                    messagebox.showerror("Errore Compilazione", f"Errore durante la compilazione:\n{res.stderr or res.stdout}")
+                    
+            threading.Thread(target=run_build, daemon=True).start()
+            
+        except Exception as e:
+            messagebox.showerror("Errore", f"Impossibile avviare la compilazione: {e}")
+
+    def build_mac_installer(self):
+        import sys
+        from tkinter import messagebox
+        if sys.platform != "darwin":
+            messagebox.showwarning("Compilazione macOS", "La compilazione del pacchetto macOS (.dmg) può essere eseguita esclusivamente da un computer Mac.")
+            return
+            
+        messagebox.showinfo("Compilazione macOS", "La compilazione per macOS è disponibile eseguendo il programma da un sistema Apple Mac.")
+
 
 class FabbisognoDialog(tk.Toplevel):
     def __init__(self, parent, report_data, global_sufficient):

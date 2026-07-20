@@ -404,6 +404,14 @@ class DataManager:
                     if key not in data:
                         data[key] = default_structure[key]
                 
+                # Allineamento schema DB: aggiungi qt_origine se mancante nei pezzi delle commesse
+                modified_schema = False
+                for commessa in data.get("commesse", []):
+                    for pezzo in commessa.get("pezzi", []):
+                        if "qt_origine" not in pezzo:
+                            pezzo["qt_origine"] = None
+                            modified_schema = True
+                
                 # Imposta la quantità di tutti i pannelli standard a 100 (solo se è il database reale)
                 if os.path.basename(self.db_path) == "database.json":
                     modified = False
@@ -413,8 +421,12 @@ class DataManager:
                             modified = True
                     
                     self.db = data
-                    if modified:
+                    if modified or modified_schema:
                         self.save_db()
+                    
+                elif modified_schema:
+                    self.db = data
+                    self.save_db()
                     
                 return data
         except Exception:
