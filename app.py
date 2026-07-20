@@ -876,6 +876,14 @@ class CutMobApp:
             self.tree_pieces.delete(item)
             
         for idx, p in enumerate(self.current_order):
+            # Formatta la quantità visualizzata
+            qty_val = p.get("quantity", 1)
+            qt_orig = p.get("qt_origine")
+            if qt_orig is not None:
+                qty_display = f"{qty_val} ({str(qt_orig).replace('.', ',')})"
+            else:
+                qty_display = str(qty_val)
+
             # Filtro pezzi
             match = True
             for col_name, filter_val in self.filters_pieces.items():
@@ -893,7 +901,7 @@ class CutMobApp:
                 elif col_name == "color_desc":
                     val_to_check = str(p["color_desc"])
                 elif col_name == "qty":
-                    val_to_check = str(p.get("quantity", 1))
+                    val_to_check = qty_display
                 
                 if filter_val not in val_to_check.lower():
                     match = False
@@ -910,7 +918,7 @@ class CutMobApp:
                 p["thickness"],
                 p["color_code"],
                 p["color_desc"],
-                p.get("quantity", 1)
+                qty_display
             ), tags=tags)
 
     def toggle_cut_progression(self, event=None):

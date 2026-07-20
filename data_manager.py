@@ -449,9 +449,7 @@ class DataManager:
 
     def import_csv(self, filepath):
         """
-        Legge un file CSV e mappa le colonne in modo flessibile per estrarre la lista pezzi.
-        Ritorna una lista di dizionari con chiavi normalizzate:
-        'descrizione', 'width', 'height', 'thickness', 'color_code', 'color_desc', 'quantity'
+        Legge un file CSV e ritorna l'elenco dei pezzi estratti.
         """
         if not os.path.exists(filepath):
             raise FileNotFoundError(f"Il file {filepath} non esiste.")
@@ -483,7 +481,16 @@ class DataManager:
                         width_val = self._parse_float(row[col_map['width']]) if 'width' in col_map else 0.0
                         height_val = self._parse_float(row[col_map['height']]) if 'height' in col_map else 0.0
                         thick_val = self._parse_float(row[col_map['thickness']]) if 'thickness' in col_map else 0.0
-                        qty_val = int(self._parse_float(row[col_map['quantity']])) if 'quantity' in col_map else 1
+                        
+                        raw_qty_val = self._parse_float(row[col_map['quantity']]) if 'quantity' in col_map else 1.0
+                        um_val = row[col_map['um']].strip().upper() if 'um' in col_map else ''
+                        
+                        qt_origine = None
+                        if um_val in ['MQ', 'ML']:
+                            qty_val = 1
+                            qt_origine = round(raw_qty_val, 4)
+                        else:
+                            qty_val = int(raw_qty_val)
                         
                         desc_val = row[col_map['descrizione']].strip() if 'descrizione' in col_map else f"Pezzo {row_idx + 1}"
                         color_code_val = "N/D"
@@ -527,7 +534,8 @@ class DataManager:
                             "thickness": thick_val,
                             "color_code": color_code_val,
                             "color_desc": color_desc_val,
-                            "quantity": qty_val
+                            "quantity": qty_val,
+                            "qt_origine": qt_origine
                         })
                     except (ValueError, IndexError) as ve:
                         print(f"Errore alla riga {row_idx + 2}: {ve}. Riga saltata.")
@@ -546,7 +554,8 @@ class DataManager:
             'descrizione': ['descrizione', 'desc', 'description', 'nome', 'articolo', 'pezzo_desc', 'descr'],
             'color_code': ['codbarra', 'codice colore', 'codicecolore', 'codice_colore', 'codice', 'color code', 'color_code', 'code', 'codice barra'],
             'color_desc': ['descrizione colore', 'descrizionecolore', 'descrizione_colore', 'colore descrizione', 'color desc', 'color_desc', 'risposte'],
-            'color': ['colore', 'color', 'finitura']
+            'color': ['colore', 'color', 'finitura'],
+            'um': ['um', 'u.m.', 'unità di misura', 'unit', 'unita di misura', 'unita\' di misura']
         }
         
         mapping = {}
