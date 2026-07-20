@@ -1050,7 +1050,13 @@ class CutMobApp:
                 temp_dir = r"C:\CutMob\Temp"
                 os.makedirs(temp_dir, exist_ok=True)
                 
-                ext = ".dmg" if download_url.endswith(".dmg") else ".exe"
+                if download_url.endswith(".dmg"):
+                    ext = ".dmg"
+                elif download_url.endswith(".zip"):
+                    ext = ".zip"
+                else:
+                    ext = ".exe"
+                    
                 dest_file = os.path.join(temp_dir, "update_installer" + ext)
                 
                 req = urllib.request.Request(download_url, headers={'User-Agent': 'Mozilla/5.0'})
@@ -1059,7 +1065,35 @@ class CutMobApp:
                 
                 progress_dialog.destroy()
                 
-                if ext == ".exe":
+                if ext == ".zip":
+                    messagebox.showinfo("Aggiornamento", "Download completato con successo!\nL'applicazione verrà chiusa per completare l'estrazione e l'aggiornamento.")
+                    
+                    extract_path = os.path.join(temp_dir, "extracted")
+                    if os.path.exists(extract_path):
+                        shutil.rmtree(extract_path, ignore_errors=True)
+                    os.makedirs(extract_path, exist_ok=True)
+                    
+                    import zipfile
+                    with zipfile.ZipFile(dest_file, 'r') as zip_ref:
+                        zip_ref.extractall(extract_path)
+                    
+                    bat_path = os.path.join(temp_dir, "update.bat")
+                    src_folder = os.path.join(extract_path, "CutMob")
+                    if not os.path.exists(src_folder):
+                        src_folder = extract_path
+                        
+                    with open(bat_path, "w", encoding="cp1252") as f:
+                        f.write(f'@echo off\n')
+                        f.write(f'title Aggiornamento CutMob in corso...\n')
+                        f.write(f'echo Attendere l\'installazione dell\'aggiornamento...\n')
+                        f.write(f'timeout /t 2 /nobreak > nul\n')
+                        f.write(f'xcopy /y /e /h /r "{src_folder}\\*.*" "C:\\CutMob\\"\n')
+                        f.write(f'start C:\\CutMob\\CutMob.exe\n')
+                        f.write(f'exit\n')
+                    
+                    subprocess.Popen([bat_path], shell=True)
+                    
+                elif ext == ".exe":
                     messagebox.showinfo("Aggiornamento", "Download completato con successo!\nL'applicazione verrà chiusa per avviare l'installazione.")
                     subprocess.Popen([dest_file], shell=True)
                 else:
@@ -1073,7 +1107,7 @@ class CutMobApp:
                 sys.exit(0)
             except Exception as e:
                 progress_dialog.destroy()
-                messagebox.showerror("Errore Aggiornamento", f"Si è verificato un errore durante il download: {e}")
+                messagebox.showerror("Errore Aggiornamento", f"Si è verificato un errore durante il download o l'estrazione: {e}")
                 
         threading.Thread(target=download_and_restart, daemon=True).start()
 
@@ -5110,12 +5144,7 @@ class DbSettingsDialog(tk.Toplevel):
             def run_build():
                 res = subprocess.run(["python", script_path], capture_output=True, text=True)
                 if res.returncode == 0:
-                    import shutil
-                    try:
-                        shutil.copy2(os.path.join("dist", "Setup_CutMob.exe"), os.path.join("dist", f"Setup_CutMob_{target_version}.exe"))
-                    except Exception:
-                        pass
-                    messagebox.showinfo("Compilazione Completata", f"Compilazione Windows (v{target_version}) completata con successo!\nIl file Setup_CutMob_{target_version}.exe si trova nella cartella dist/\n\nLa cartella dist/ verrà aperta automaticamente.")
+                    messagebox.showinfo("Compilazione Completata", f"Compilazione Windows (v{target_version}) completata con successo!\nIl file Setup_CutMob_{target_version}.zip si trova nella cartella dist/\n\nLa cartella dist/ verrà aperta automaticamente.")
                     try:
                         os.startfile("dist")
                     except Exception:
