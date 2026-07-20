@@ -965,7 +965,7 @@ class CutMobApp:
             try:
                 # Determina l'OS corrente per l'aggiornamento
                 os_name = "mac" if sys.platform == "darwin" else "windows"
-                url = f"https://panel.aiconsultingitalia.com/panel/panel_cutmob/api.php?action=get_latest_version&prodotto=CutMob&os={os_name}"
+                url = f"https://panel.aiconsultingitalia.com/panel_cutmob/api.php?action=get_latest_version&prodotto=CutMob&os={os_name}"
                 req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
                 with urllib.request.urlopen(req, timeout=5) as response:
                     res_data = json.loads(response.read().decode('utf-8'))
@@ -5096,7 +5096,7 @@ class DbSettingsDialog(tk.Toplevel):
         
         try:
             os_name = "mac" if sys.platform == "darwin" else "windows"
-            url = f"https://panel.aiconsultingitalia.com/panel/panel_cutmob/api.php?action=get_latest_version&prodotto=CutMob&os={os_name}"
+            url = f"https://panel.aiconsultingitalia.com/panel_cutmob/api.php?action=get_latest_version&prodotto=CutMob&os={os_name}"
             req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
             with urllib.request.urlopen(req, timeout=5) as response:
                 res_data = json.loads(response.read().decode('utf-8'))
