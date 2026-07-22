@@ -71,6 +71,21 @@ class DataManager:
             for k, v in default_config.items():
                 if k not in config:
                     config[k] = v
+
+            # Ripristina automaticamente i dati cliente ufficiali crittografati nella licenza
+            key_str = self.load_license_key()
+            if key_str:
+                try:
+                    from license_manager import verifica_chiave_licenza
+                    valid, msg, data = verifica_chiave_licenza(key_str)
+                    if valid and data:
+                        if data.get("ragione_sociale"):
+                            config["client_name"] = data.get("ragione_sociale")
+                        if data.get("partita_iva"):
+                            config["client_cf_piva"] = data.get("partita_iva")
+                except Exception:
+                    pass
+
             return config
         except Exception:
             return default_config
@@ -412,20 +427,8 @@ class DataManager:
                             pezzo["qt_origine"] = None
                             modified_schema = True
                 
-                # Imposta la quantità di tutti i pannelli standard a 100 (solo se è il database reale)
-                if os.path.basename(self.db_path) == "database.json":
-                    modified = False
-                    for b in data.get("barre", []):
-                        if b.get("quantity") != 100:
-                            b["quantity"] = 100
-                            modified = True
-                    
-                    self.db = data
-                    if modified or modified_schema:
-                        self.save_db()
-                    
-                elif modified_schema:
-                    self.db = data
+                self.db = data
+                if modified_schema:
                     self.save_db()
                     
                 return data
@@ -474,6 +477,21 @@ class DataManager:
                 semicolons = sample.count(';')
                 if semicolons > commas:
                     delimiter = ';'
+        except Exception:
+            pass
+
+        # Carica magazzino per estrarre la mappa colore -> venatura
+        color_grain_map = {}
+        try:
+            db_temp = self.load_db()
+            for b in db_temp.get("barre", []):
+                cc = b.get("color_code")
+                if cc:
+                    color_grain_map[str(cc).strip().lower()] = b.get("has_grain", False)
+            for s in db_temp.get("semilavorati", []):
+                cc = s.get("color_code")
+                if cc:
+                    color_grain_map[str(cc).strip().lower()] = s.get("has_grain", False)
         except Exception:
             pass
 
@@ -539,6 +557,18 @@ class DataManager:
                         if color_desc_val == "N/D" and 'color' in col_map:
                             color_desc_val = row[col_map['color']].strip()
 
+                        # Controlla se il colore ha un orientamento a magazzino
+                        cc_key = str(color_code_val).strip().lower()
+                        has_grain = color_grain_map.get(cc_key, False)
+
+                        orient_val = row[col_map['orientamento']].strip() if 'orientamento' in col_map else ""
+                        if not has_grain:
+                            final_orient = "neutro"
+                            is_orient_inv = False
+                        else:
+                            is_orient_inv = str(orient_val).lower() in ["orizzontale", "invertito", "h", "1", "o"]
+                            final_orient = "Orizzontale" if is_orient_inv else "Verticale"
+
                         pezzi.append({
                             "descrizione": desc_val,
                             "width": width_val,
@@ -546,6 +576,8 @@ class DataManager:
                             "thickness": thick_val,
                             "color_code": color_code_val,
                             "color_desc": color_desc_val,
+                            "orientamento_invertito": is_orient_inv,
+                            "orientamento": final_orient,
                             "quantity": qty_val,
                             "qt_origine": qt_origine
                         })
@@ -559,23 +591,39 @@ class DataManager:
 
     def _detect_columns(self, headers):
         synonyms = {
-            'width': ['larghezza', 'lunghezza', 'width', 'length', 'l', 'w', 'lungh', 'largh', 'larg_stdag'],
-            'height': ['altezza', 'height', 'h', 'alt', 'alt_stdag'],
-            'thickness': ['spessore', 'thickness', 't', 'sp', 'spess', 'lungh_stdag'],
-            'quantity': ['quantità', 'quantita', 'qta', 'quantity', 'qty', 'quantita\'', 'n', 'pezzi', 'pezzo', 'sommadiquant_da_prod'],
+            'width': ['larg_stdag', 'larghezza', 'width', 'largh', 'w', 'l', 'lunghezza', 'length', 'lungh'],
+            'height': ['alt_stdag', 'altezza', 'height', 'alt', 'h'],
+            'thickness': ['lungh_stdag', 'spessore', 'thickness', 'spess', 'sp', 't'],
+            'quantity': ['sommadiquant_da_prod', 'quantità', 'quantita', 'qta', 'quantity', 'qty', "quantita'", 'n', 'pezzi', 'pezzo'],
             'descrizione': ['descrizione', 'desc', 'description', 'nome', 'articolo', 'pezzo_desc', 'descr'],
             'color_code': ['codbarra', 'codice colore', 'codicecolore', 'codice_colore', 'codice', 'color code', 'color_code', 'code', 'codice barra'],
             'color_desc': ['descrizione colore', 'descrizionecolore', 'descrizione_colore', 'colore descrizione', 'color desc', 'color_desc', 'risposte'],
             'color': ['colore', 'color', 'finitura'],
-            'um': ['um', 'u.m.', 'unità di misura', 'unit', 'unita di misura', 'unita\' di misura']
+            'orientamento': ['orientamento', 'orientamento_venatura', 'venatura_orientamento', 'orient', 'venatura', 'grain_orient'],
+            'um': ['um', 'u.m.', 'unità di misura', 'unit', 'unita di misura', "unita' di misura"]
         }
         
         mapping = {}
+        # Prima controlla uguaglianze esatte (case insensitive) per evitare sovrapposizioni di sottostringhe
+        headers_lower = [h.lower().strip() for h in headers]
         for key, syn_list in synonyms.items():
             for syn in syn_list:
-                if syn in headers:
-                    mapping[key] = headers.index(syn)
+                if syn in headers_lower:
+                    mapping[key] = headers_lower.index(syn)
                     break
+        
+        # Se non trovata per match esatto, effettua controllo per sottostringa
+        for key, syn_list in synonyms.items():
+            if key not in mapping:
+                for syn in syn_list:
+                    matched = False
+                    for idx, h in enumerate(headers_lower):
+                        if syn in h:
+                            mapping[key] = idx
+                            matched = True
+                            break
+                    if matched:
+                        break
         
         if 'width' not in mapping and len(headers) > 0:
             mapping['width'] = 0
@@ -680,9 +728,10 @@ class DataManager:
         self.set_semilavorati(nuovi_semi)
         return True
 
-    def export_html_report(self, risultati, filepath):
+    def export_html_report(self, risultati, filepath, for_pdf=False):
         """
-        Genera un report HTML premium con grafici di taglio vettoriali SVG incorporati.
+        Genera un report HTML o PDF con grafici di taglio vettoriali SVG incorporati.
+        Se for_pdf è True, applica uno stile ad alto contrasto ad alta leggibilità ideale per la stampa PDF.
         """
         import time
         summary = risultati["summary_generale"]
@@ -754,15 +803,45 @@ class DataManager:
         client_name = self.config.get("client_name", "")
         client_html = ""
         if client_name:
-            client_html = f'<p style="font-size: 16px; margin: 5px 0 0 0; color: #273c75; font-weight: bold;">per {client_name}</p>'
+            color_header = "#1565c0" if for_pdf else "#273c75"
+            client_html = f'<p style="font-size: 15px; margin: 3px 0 0 0; color: {color_header}; font-weight: bold;">per {client_name}</p>'
             
         html = []
-        html.append("""<!DOCTYPE html>
-<html lang="it">
-<head>
-    <meta charset="UTF-8">
-    <title>Report di Taglio</title>
-    <style>
+        if for_pdf:
+            css_styles = """
+        @page { size: A4 portrait; margin: 6mm; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; color: #111111; background-color: #ffffff; margin: 0; padding: 0; }
+        .container { max-width: 100%; margin: 0; background: #ffffff; padding: 0; box-shadow: none; }
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #1565c0; padding-bottom: 6px; margin-bottom: 10px; }
+        .title h1 { margin: 0; color: #1565c0; font-size: 20px; font-weight: bold; }
+        .title p { margin: 2px 0 0 0; color: #424242; font-size: 10px; }
+        .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; page-break-inside: avoid; }
+        .summary-card { background: #f8f9fa; padding: 6px 10px; border-radius: 4px; border: 1px solid #e0e0e0; border-left: 3px solid #1565c0; }
+        .summary-card.efficiency { border-left-color: #2e7d32; }
+        .summary-card.waste { border-left-color: #c62828; }
+        .card-value { font-size: 16px; font-weight: bold; color: #111111; margin-top: 2px; }
+        .card-label { font-size: 9px; text-transform: uppercase; color: #616161; font-weight: bold; letter-spacing: 0.5px; }
+        .group-section { margin-bottom: 15px; }
+        .group-header { background: #1565c0; color: #ffffff; padding: 6px 12px; border-radius: 4px; font-size: 12px; font-weight: bold; margin-bottom: 8px; page-break-after: avoid; }
+        .pdf-top-banner { background: #f8f9fa; border: 1px solid #cfd8dc; border-left: 4px solid #1565c0; border-radius: 4px; padding: 6px 10px; margin-bottom: 8px; page-break-inside: avoid; }
+        .board-container { background: #ffffff; border: 1px solid #b0bec5; border-radius: 6px; padding: 8px; margin-bottom: 10px; page-break-inside: avoid; break-inside: avoid; }
+        .board-container.page-break { page-break-before: always; break-before: page; }
+        .board-meta { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 11px; font-weight: bold; color: #212121; }
+        .board-body-grid { display: grid; grid-template-columns: 48% 52%; gap: 10px; align-items: start; }
+        .board-left-column { width: 100%; }
+        .board-right-column { width: 100%; font-size: 10px; }
+        .svg-wrapper { background: #ffffff; border: 1px solid #cfd8dc; border-radius: 4px; padding: 4px; display: flex; justify-content: center; align-items: center; }
+        .svg-wrapper svg { max-width: 100%; max-height: 540px; width: auto; height: auto; display: block; }
+        table { width: 100%; border-collapse: collapse; margin: 4px 0; font-size: 10px; }
+        th, td { padding: 3px 5px; text-align: left; border: 1px solid #e0e0e0; font-size: 9.5px; color: #111111; }
+        th { background: #eceff1; color: #111111; font-weight: bold; }
+        .badge { display: inline-block; padding: 1px 5px; border-radius: 3px; font-size: 9px; font-weight: bold; }
+        .badge.rotated { background: #fff8e1; color: #e65100; border: 1px solid #ffe082; }
+        .badge.standard { background: #e3f2fd; color: #0d47a1; border: 1px solid #90caf9; }
+        .badge.recupero { background: #e8f5e9; color: #1b5e20; border: 1px solid #a5d6a7; }
+"""
+        else:
+            css_styles = """
         body { font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif; color: #2c3e50; background-color: #f5f6fa; margin: 0; padding: 30px; }
         .container { max-width: 1000px; margin: 0 auto; background: #ffffff; padding: 40px; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.06); }
         .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f2f6; padding-bottom: 20px; margin-bottom: 30px; }
@@ -787,51 +866,78 @@ class DataManager:
         .badge.rotated { background: #e1b12c; }
         .badge.standard { background: #487eb0; }
         .badge.recupero { background: #2ecc71; }
-        .print-page-break { display: none; }
-        @media print {
-            body { background: #ffffff; padding: 0; margin: 0; }
-            .container { box-shadow: none; padding: 0; max-width: 100%; width: 100%; }
-            .board-container { page-break-before: always; break-before: page; border: 1px solid #ccc; margin-bottom: 15px; padding: 10px; }
-            .print-page-break { display: block; page-break-after: always; break-after: page; }
-            .svg-wrapper { padding: 5px; margin-top: 5px; }
-            .svg-wrapper svg { max-height: 80vh !important; max-width: 100% !important; width: auto !important; height: auto !important; }
-            table { margin: 8px 0; }
-            th, td { padding: 4px 8px; font-size: 11px; }
-            h5 { margin: 10px 0 3px 0 !important; }
-        }
+"""
+        tot_lastre_sqm = f"{summary['totale_area_lastre'] / 1000000.0:.2f}"
+        tot_pezzi_sqm = f"{summary['totale_area_pezzi'] / 1000000.0:.2f}"
+        tot_scarto_sqm = f"{summary['totale_area_scarto'] / 1000000.0:.2f}"
+        gen_time = time.strftime("%d/%m/%Y %H:%M:%S")
+        
+        html.append(f"""<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <title>Report di Taglio</title>
+    <style>
+        {css_styles}
+        .print-page-break {{ display: none; }}
+        @media print {{
+            body {{ background: #ffffff; padding: 0; margin: 0; }}
+            .container {{ box-shadow: none; padding: 0; max-width: 100%; width: 100%; }}
+            .board-container {{ page-break-inside: avoid; break-inside: avoid; border: 1px solid #ccc; margin-bottom: 15px; padding: 10px; }}
+            .print-page-break {{ display: block; page-break-after: always; break-after: page; }}
+            .svg-wrapper {{ padding: 5px; margin-top: 5px; }}
+            .svg-wrapper svg {{ max-height: 70vh !important; max-width: 100% !important; width: auto !important; height: auto !important; }}
+            table {{ margin: 8px 0; }}
+            th, td {{ padding: 4px 8px; font-size: 11px; }}
+            h5 {{ margin: 10px 0 3px 0 !important; }}
+        }}
     </style>
 </head>
 <body>
-    <div class="container">
+    <div class="container">""")
+
+        if for_pdf:
+            client_sub = f" &bull; Cliente: <strong>{client_name}</strong>" if client_name else ""
+            html.append(f"""
+        <div class="pdf-top-banner">
+            <div style="font-size: 13px; font-weight: bold; color: #1565c0;">REPORT DI TAGLIO CUTMOB{client_sub}</div>
+            <div style="font-size: 9.5px; color: #424242; margin-top: 2px;">
+                Data: {gen_time} &bull; Barre Usate: {tot_lastre_sqm} mq &bull; Pezzi Tagliati: {tot_pezzi_sqm} mq &bull; Scarto: {tot_scarto_sqm} mq &bull; <strong>Efficienza Media: {summary['efficienza_media']}%</strong>
+            </div>
+        </div>
+""")
+        else:
+            html.append(f"""
         <div class="header">
             <div class="title">
                 <h1>Report di Taglio</h1>
-                """ + client_html + """
-                <p>Generato il: """ + time.strftime("%d/%m/%Y %H:%M:%S") + """</p>
+                {client_html}
+                <p>Generato il: {gen_time}</p>
             </div>
         </div>
         
         <div class="summary-grid">
             <div class="summary-card">
                 <div class="card-label">Area Barre Usate</div>
-                <div class="card-value">""" + f"{summary['totale_area_lastre'] / 1e6:.2f} m²" + """</div>
+                <div class="card-value">{tot_lastre_sqm} mq</div>
             </div>
             <div class="summary-card efficiency">
                 <div class="card-label">Efficienza Media</div>
-                <div class="card-value">""" + f"{summary['efficienza_media']}%" + """</div>
+                <div class="card-value">{summary['efficienza_media']}%</div>
             </div>
             <div class="summary-card">
                 <div class="card-label">Area Pezzi Tagliati</div>
-                <div class="card-value">""" + f"{summary['totale_area_pezzi'] / 1e6:.2f} m²" + """</div>
+                <div class="card-value">{tot_pezzi_sqm} mq</div>
             </div>
             <div class="summary-card waste">
                 <div class="card-label">Area Scarto</div>
-                <div class="card-value">""" + f"{summary['totale_area_scarto'] / 1e6:.2f} m²" + """</div>
+                <div class="card-value">{tot_scarto_sqm} mq</div>
             </div>
         </div>
 """)
 
         # Scorrere i gruppi di materiali
+        is_first_board = True
         for gk, g in risultati.get("gruppi", {}).items():
             parts = gk.split("_", 1)
             thickness_str = parts[0] if parts else gk
@@ -842,7 +948,12 @@ class DataManager:
             elif g.get("unplaced_pieces"):
                 color_desc = g["unplaced_pieces"][0].get("color_desc", "N/D")
                 
-            html.append(f"""
+            total_board_sqm = f"{g['summary']['total_board_area'] / 1000000.0:.2f}"
+            used_area_sqm = f"{g['summary']['used_area'] / 1000000.0:.2f}"
+            waste_area_sqm = f"{g['summary']['waste_area'] / 1000000.0:.2f}"
+            
+            if not for_pdf:
+                html.append(f"""
         <div class="group-section">
             <div class="group-header">Materiale: Spessore {thickness_str} | Codice Colore: {color_code_str} - {color_desc} (Efficienza: {g['summary']['efficiency']}%)</div>
             
@@ -856,13 +967,13 @@ class DataManager:
                 </tr>
                 <tr>
                     <th>Area Totale Barre</th>
-                    <td>{g['summary']['total_board_area'] / 1e6:.2f} m²</td>
+                    <td>{total_board_sqm} mq</td>
                     <th>Area Pezzi</th>
-                    <td>{g['summary']['used_area'] / 1e6:.2f} m²</td>
+                    <td>{used_area_sqm} mq</td>
                 </tr>
                 <tr>
                     <th>Area Scarto</th>
-                    <td>{g['summary']['waste_area'] / 1e6:.2f} m²</td>
+                    <td>{waste_area_sqm} mq</td>
                     <th>Pezzi non piazzati</th>
                     <td>{len(g['unplaced_pieces'])}</td>
                 </tr>
@@ -910,16 +1021,119 @@ class DataManager:
                 efficiency = ub["efficiency"]
                 
                 # SVG del layout
-                svg_content = self._generate_layout_svg(ub)
+                svg_content = self._generate_layout_svg(ub, for_pdf=for_pdf)
                 
                 # Rileva se la barra è virtuale/mancante
                 is_virtual = (board.get("_source_type") == "barre_virtual") or (board.get("id") == "BARRA_VIRTUALE_DUMMY") or ("virtual" in str(board.get("id")).lower())
                 board_style = "border: 2px solid #e84118; background: #fff5f5;" if is_virtual else ""
                 virtual_badge = ' <span class="badge" style="background:#e84118;">MANCANTE - DA ACQUISTARE</span>' if is_virtual else ""
-                
                 qty_badge = f' <span class="badge" style="background:#273c75; font-size: 13px; padding: 4px 10px; margin-left: 5px;">X {qty} LASTR{"E" if qty > 1 else "A"} IDENTICH{"E" if qty > 1 else "A"}</span>' if qty > 1 else ""
                 
-                html.append(f"""
+                board_page_class = "" if (for_pdf and is_first_board) else (" page-break" if for_pdf else "")
+                is_first_board = False
+                
+                if for_pdf:
+                    eff_color = "#2e7d32" if efficiency >= 70 else "#c62828"
+                    html.append(f"""
+            <div class="board-container{board_page_class}" style="{board_style}">
+                <div class="board-meta">
+                    <span>Layout {b_idx + 1}: {board.get('id', 'N/D')} - {board.get('color_desc', 'N/D')} ({int(bh)} x {int(bw)} x {board.get('thickness', '')} mm){qty_badge}{virtual_badge}</span>
+                    <span style="color: {eff_color}; font-weight: bold;">Efficienza: {efficiency}%</span>
+                </div>
+                <div class="board-body-grid">
+                    <div class="board-left-column">
+                        <div class="svg-wrapper">
+                            {svg_content}
+                        </div>
+                    </div>
+                    <div class="board-right-column">
+                        <div style="font-size: 10px; margin-bottom: 4px; background: #f5f5f5; padding: 3px 6px; border-radius: 3px; border-left: 3px solid #1565c0;">
+                            <strong>Pezzi posizionati:</strong> {len(ub['placed_pieces'])} | 
+                            <strong>Semilavorati recuperati:</strong> {len(ub.get('new_semilavorati', []))}
+                        </div>
+                        <h5 style="margin: 4px 0 2px 0; font-size: 10px; color: #1565c0;">Elenco Pezzi Posizionati</h5>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Pezzo</th>
+                                    <th>X</th>
+                                    <th>Y</th>
+                                    <th>W</th>
+                                    <th>H</th>
+                                    <th>Stato</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+""")
+                    for p in ub['placed_pieces']:
+                        status_badge = '<span class="badge rotated">Ruotato</span>' if p.get('rotated') else '<span class="badge standard">Standard</span>'
+                        html.append(f"""
+                                <tr>
+                                    <td>{p['descrizione']}</td>
+                                    <td>{int(p['x'])}</td>
+                                    <td>{int(p['y'])}</td>
+                                    <td>{int(p['w'])}</td>
+                                    <td>{int(p['h'])}</td>
+                                    <td>{status_badge}</td>
+                                </tr>
+""")
+                    for s in ub.get('new_semilavorati', []):
+                        html.append(f"""
+                                <tr>
+                                    <td style="color:#2e7d32; font-style:italic;">Recupero Semilavorato</td>
+                                    <td>{int(s.get('x', 0))}</td>
+                                    <td>{int(s.get('y', 0))}</td>
+                                    <td>{int(s.get('width'))}</td>
+                                    <td>{int(s.get('height'))}</td>
+                                    <td><span class="badge recupero">Semilavorato</span></td>
+                                </tr>
+""")
+                    html.append("""
+                            </tbody>
+                        </table>
+""")
+                    cuts = ub.get("cuts", [])
+                    if cuts:
+                        html.append("""
+                        <h5 style="margin: 6px 0 2px 0; font-size: 10px; color: #c62828;">Sequenza Tagli Sezionatrice</h5>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Step</th>
+                                    <th>Tipo Taglio</th>
+                                    <th>Quota Taglio</th>
+                                    <th>Lunghezza</th>
+                                    <th>Coordinata Inizio/Fine</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+""")
+                        sorted_cuts = sorted(cuts, key=lambda c: c.get("step", 0))
+                        for c in sorted_cuts:
+                            tipo = "Orizzontale (Y)" if c["type"] == "H" else "Verticale (X)"
+                            quota = int(c["y1"]) if c["type"] == "H" else int(c["x1"])
+                            lunghezza = int(abs(c["x2"] - c["x1"])) if c["type"] == "H" else int(abs(c["y2"] - c["y1"]))
+                            coord = f"X={int(c['x1'])} &rarr; X={int(c['x2'])}" if c["type"] == "H" else f"Y={int(c['y1'])} &rarr; Y={int(c['y2'])}"
+                            html.append(f"""
+                                <tr>
+                                    <td><strong>{c.get('step', '')}</strong></td>
+                                    <td>{tipo}</td>
+                                    <td><strong>{quota} mm</strong></td>
+                                    <td>{lunghezza} mm</td>
+                                    <td>{coord}</td>
+                                </tr>
+""")
+                        html.append("""
+                            </tbody>
+                        </table>
+""")
+                    html.append("""
+                    </div>
+                </div>
+            </div>
+""")
+                else:
+                    html.append(f"""
             <div class="board-container" style="{board_style}">
                 <div class="board-meta">
                     <span>Layout {b_idx + 1}: {board.get('id', 'N/D')} - {board.get('color_desc', 'N/D')} ({int(bh)} x {int(bw)} x {board.get('thickness', '')} mm){qty_badge}{virtual_badge}</span>
@@ -948,9 +1162,9 @@ class DataManager:
                     </thead>
                     <tbody>
 """)
-                for p in ub['placed_pieces']:
-                    status_badge = '<span class="badge rotated">Ruotato</span>' if p.get('rotated') else '<span class="badge standard">Standard</span>'
-                    html.append(f"""
+                    for p in ub['placed_pieces']:
+                        status_badge = '<span class="badge rotated">Ruotato</span>' if p.get('rotated') else '<span class="badge standard">Standard</span>'
+                        html.append(f"""
                         <tr>
                             <td>{p['descrizione']}</td>
                             <td>{int(p['x'])}</td>
@@ -960,9 +1174,9 @@ class DataManager:
                             <td>{status_badge}</td>
                         </tr>
 """)
-                
-                for s in ub.get('new_semilavorati', []):
-                    html.append(f"""
+                    
+                    for s in ub.get('new_semilavorati', []):
+                        html.append(f"""
                         <tr>
                             <td style="color:#2ecc71; font-style:italic;">Recupero Semilavorato</td>
                             <td>{int(s.get('x', 0))}</td>
@@ -972,16 +1186,16 @@ class DataManager:
                             <td><span class="badge recupero">Semilavorato</span></td>
                         </tr>
 """)
-                    
-                html.append("""
+                        
+                    html.append("""
                     </tbody>
                 </table>
 """)
-                
-                # Sequenza Tagli per l'operatore
-                cuts = ub.get("cuts", [])
-                if cuts:
-                    html.append("""
+                    
+                    # Sequenza Tagli per l'operatore
+                    cuts = ub.get("cuts", [])
+                    if cuts:
+                        html.append("""
                 <h5 style="margin: 20px 0 5px 0; color: #e84118;">Sequenza Tagli Sezionatrice</h5>
                 <table>
                     <thead>
@@ -995,13 +1209,13 @@ class DataManager:
                     </thead>
                     <tbody>
 """)
-                    sorted_cuts = sorted(cuts, key=lambda c: c.get("step", 0))
-                    for c in sorted_cuts:
-                        tipo = "Orizzontale (guide Y)" if c["type"] == "H" else "Verticale (guide X)"
-                        quota = int(c["y1"]) if c["type"] == "H" else int(c["x1"])
-                        lunghezza = int(abs(c["x2"] - c["x1"])) if c["type"] == "H" else int(abs(c["y2"] - c["y1"]))
-                        coord = f"da X={int(c['x1'])} a X={int(c['x2'])}" if c["type"] == "H" else f"da Y={int(c['y1'])} a Y={int(c['y2'])}"
-                        html.append(f"""
+                        sorted_cuts = sorted(cuts, key=lambda c: c.get("step", 0))
+                        for c in sorted_cuts:
+                            tipo = "Orizzontale (guide Y)" if c["type"] == "H" else "Verticale (guide X)"
+                            quota = int(c["y1"]) if c["type"] == "H" else int(c["x1"])
+                            lunghezza = int(abs(c["x2"] - c["x1"])) if c["type"] == "H" else int(abs(c["y2"] - c["y1"]))
+                            coord = f"da X={int(c['x1'])} a X={int(c['x2'])}" if c["type"] == "H" else f"da Y={int(c['y1'])} a Y={int(c['y2'])}"
+                            html.append(f"""
                         <tr>
                             <td><strong>{c.get('step', '')}</strong></td>
                             <td>{tipo}</td>
@@ -1010,12 +1224,12 @@ class DataManager:
                             <td>{coord}</td>
                         </tr>
 """)
-                    html.append("""
+                        html.append("""
                     </tbody>
                 </table>
 """)
-                
-                html.append("""
+                    
+                    html.append("""
             </div>
 """)
 
@@ -1037,7 +1251,7 @@ class DataManager:
             print(f"Errore nella scrittura del report HTML: {e}")
             return False
             
-    def _generate_layout_svg(self, ub):
+    def _generate_layout_svg(self, ub, for_pdf=False):
         import copy
         ub = copy.deepcopy(ub)
         board = ub["board"]
@@ -1081,18 +1295,28 @@ class DataManager:
         new_semis = ub.get("new_semilavorati", [])
         
         is_virtual = (board.get("_source_type") == "barre_virtual") or (board.get("id") == "BARRA_VIRTUALE_DUMMY") or ("virtual" in str(board.get("id")).lower())
-        panel_color = "#fce4e4" if is_virtual else "#dcdde1"
-        border_color = "#e84118" if is_virtual else "#7f8c8d"
-        border_width = 3 if is_virtual else 2
+        
+        if for_pdf:
+            panel_color = "#ffffff" if not is_virtual else "#fff5f5"
+            border_color = "#c62828" if is_virtual else "#333333"
+            border_width = 2.5 if is_virtual else 1.5
+        else:
+            panel_color = "#fce4e4" if is_virtual else "#dcdde1"
+            border_color = "#e84118" if is_virtual else "#7f8c8d"
+            border_width = 3 if is_virtual else 2
 
-        # Calcolo font size proporzionato alla dimensione massima del pannello
-        # Questo assicura che il testo scali in modo perfettamente leggibile anche quando la barra/pannello viene riscaldata su schermo/A4
-        base_size = max(14.0, max(bw, bh) * 0.027)
-        desc_font_size = int(base_size * 1.25)
-        dim_font_size = int(base_size * 0.9)
+        max_board_dim = max(bw, bh)
+        if for_pdf:
+            desc_font_size = max(12.0, max_board_dim * 0.016)
+            dim_font_size = max(10.0, max_board_dim * 0.012)
+        else:
+            base_size = max(14.0, max_board_dim * 0.027)
+            desc_font_size = int(base_size * 1.25)
+            dim_font_size = int(base_size * 0.9)
         
         svg_parts = []
-        svg_parts.append(f'<svg viewBox="0 0 {bw} {bh}" width="{bw}" height="{bh}" style="max-width: 100%; height: auto; border: 1px solid #dcdde1; background-color: #f5f6fa;" xmlns="http://www.w3.org/2000/svg">')
+        svg_bg = "#ffffff" if for_pdf else "#f5f6fa"
+        svg_parts.append(f'<svg viewBox="0 0 {bw} {bh}" width="{bw}" height="{bh}" style="max-width: 100%; height: auto; border: 1px solid #dcdde1; background-color: {svg_bg};" xmlns="http://www.w3.org/2000/svg">')
         
         # 1. Pannello di sfondo (scarto)
         svg_parts.append(f'  <rect x="0" y="0" width="{bw}" height="{bh}" fill="{panel_color}" stroke="{border_color}" stroke-width="{border_width}" />')
@@ -1101,73 +1325,88 @@ class DataManager:
         for s in new_semis:
             if "x" in s and "y" in s:
                 sx, sy, sw, sh = s["x"], s["y"], s["width"], s["height"]
-                svg_parts.append(f'  <rect x="{sx}" y="{sy}" width="{sw}" height="{sh}" fill="#badc58" stroke="#6ab04c" stroke-width="1.5" stroke-dasharray="6,4" />')
+                rem_bg = "#e8f5e9" if for_pdf else "#badc58"
+                rem_border = "#2e7d32" if for_pdf else "#6ab04c"
+                rem_text = "#1b5e20" if for_pdf else "#2c3e50"
+                svg_parts.append(f'  <rect x="{sx}" y="{sy}" width="{sw}" height="{sh}" fill="{rem_bg}" stroke="{rem_border}" stroke-width="1.5" stroke-dasharray="6,4" />')
                 s_min_dim = min(sw, sh)
-                s_font_size = min(desc_font_size, int(s_min_dim * 0.22))
-                s_font_size = max(11, s_font_size)
+                s_font_size = min(desc_font_size, s_min_dim * 0.18)
+                s_font_size = max(10.0, s_font_size)
                 if sh > s_font_size * 1.5 and sw > s_font_size * 3:
-                    svg_parts.append(f'  <text x="{sx + sw/2}" y="{sy + sh/2}" font-family="Segoe UI, sans-serif" font-size="{s_font_size}" fill="#2c3e50" font-style="italic" text-anchor="middle" dominant-baseline="middle">Recupero {int(sw)}x{int(sh)}</text>')
+                    svg_parts.append(f'  <text x="{sx + sw/2}" y="{sy + sh/2}" font-family="Segoe UI, sans-serif" font-size="{s_font_size}" fill="{rem_text}" font-style="italic" text-anchor="middle" dominant-baseline="middle">Recupero {int(sw)}x{int(sh)}</text>')
                 elif sh > s_font_size * 1.2 and sw > s_font_size * 2:
-                    svg_parts.append(f'  <text x="{sx + sw/2}" y="{sy + sh/2}" font-family="Segoe UI, sans-serif" font-size="{s_font_size}" fill="#2c3e50" font-style="italic" text-anchor="middle" dominant-baseline="middle">{int(sw)}x{int(sh)}</text>')
+                    svg_parts.append(f'  <text x="{sx + sw/2}" y="{sy + sh/2}" font-family="Segoe UI, sans-serif" font-size="{s_font_size}" fill="{rem_text}" font-style="italic" text-anchor="middle" dominant-baseline="middle">{int(sw)}x{int(sh)}</text>')
         
         # 3. Pezzi posizionati
         for p in pieces:
             px, py, pw, ph = p["x"], p["y"], p["w"], p["h"]
             is_rotated = p.get("rotated", False)
-            bg = "#e1b12c" if is_rotated else "#487eb0"
-            border = "#44bd32" if is_rotated else "#273c75"
+            if for_pdf:
+                bg = "#fff8e1" if is_rotated else "#e3f2fd"
+                border = "#f57f17" if is_rotated else "#1565c0"
+                text_fill = "#b71c1c" if is_rotated else "#0d47a1"
+            else:
+                bg = "#e1b12c" if is_rotated else "#487eb0"
+                border = "#44bd32" if is_rotated else "#273c75"
+                text_fill = "#ffffff"
+                
             svg_parts.append(f'  <rect x="{px}" y="{py}" width="{pw}" height="{ph}" fill="{bg}" stroke="{border}" stroke-width="1.5" />')
             
             desc = p.get("descrizione", "Pezzo")
             
             piece_min_dim = min(pw, ph)
-            p_desc_size = min(desc_font_size, int(piece_min_dim * 0.22))
-            p_desc_size = max(11, p_desc_size)
-            
-            p_dim_size = min(dim_font_size, int(piece_min_dim * 0.18))
-            p_dim_size = max(9, p_dim_size)
+            if for_pdf:
+                p_desc_size = min(max(11.0, piece_min_dim * 0.16), max_board_dim * 0.016)
+                p_dim_size = min(max(9.0, piece_min_dim * 0.12), max_board_dim * 0.012)
+            else:
+                p_desc_size = min(desc_font_size, int(piece_min_dim * 0.22))
+                p_desc_size = max(11, p_desc_size)
+                p_dim_size = min(dim_font_size, int(piece_min_dim * 0.18))
+                p_dim_size = max(9, p_dim_size)
             
             # Descrizione al centro
-            if ph > p_desc_size * 1.5 and pw > p_desc_size * 2:
-                svg_parts.append(f'  <text x="{px + pw/2}" y="{py + ph/2}" font-family="Segoe UI, sans-serif" font-weight="bold" font-size="{p_desc_size}" fill="#ffffff" text-anchor="middle" dominant-baseline="middle">{desc}</text>')
+            if ph > p_desc_size * 1.4 and pw > p_desc_size * 1.8:
+                svg_parts.append(f'  <text x="{px + pw/2}" y="{py + ph/2}" font-family="Segoe UI, sans-serif" font-weight="bold" font-size="{p_desc_size}" fill="{text_fill}" text-anchor="middle" dominant-baseline="middle">{desc}</text>')
             
             # Larghezza in basso
             if pw > p_dim_size * 2 and ph > p_dim_size * 2.2:
-                svg_parts.append(f'  <text x="{px + pw/2}" y="{py + ph - p_dim_size * 1.8}" font-family="Segoe UI, sans-serif" font-size="{p_dim_size}" fill="#ffffff" text-anchor="middle" dominant-baseline="middle">{int(pw)}</text>')
+                svg_parts.append(f'  <text x="{px + pw/2}" y="{py + ph - p_dim_size * 1.5}" font-family="Segoe UI, sans-serif" font-size="{p_dim_size}" font-weight="bold" fill="{text_fill}" text-anchor="middle" dominant-baseline="middle">{int(pw)}</text>')
                 
             # Altezza a sinistra (ruotata)
             if ph > p_dim_size * 2 and pw > p_dim_size * 2.2:
-                hx = px + p_dim_size * 1.8
+                hx = px + p_dim_size * 1.5
                 hy = py + ph/2
-                svg_parts.append(f'  <text x="{hx}" y="{hy}" transform="rotate(-90, {hx}, {hy})" font-family="Segoe UI, sans-serif" font-size="{p_dim_size}" fill="#ffffff" text-anchor="middle" dominant-baseline="middle">{int(ph)}</text>')
+                svg_parts.append(f'  <text x="{hx}" y="{hy}" transform="rotate(-90, {hx}, {hy})" font-family="Segoe UI, sans-serif" font-size="{p_dim_size}" font-weight="bold" fill="{text_fill}" text-anchor="middle" dominant-baseline="middle">{int(ph)}</text>')
 
         # 4. Linee di taglio
         show_progression = self.config.get("show_cut_progression", True)
         if cuts:
             for c in cuts:
-                svg_parts.append(f'  <line x1="{c["x1"]}" y1="{c["y1"]}" x2="{c["x2"]}" y2="{c["y2"]}" stroke="#e84118" stroke-width="2.5" stroke-dasharray="8,6" />')
+                cut_color = "#c62828" if for_pdf else "#e84118"
+                svg_parts.append(f'  <line x1="{c["x1"]}" y1="{c["y1"]}" x2="{c["x2"]}" y2="{c["y2"]}" stroke="{cut_color}" stroke-width="2" stroke-dasharray="8,6" />')
                 step_num = c.get("step")
                 if show_progression and step_num is not None:
                     mid_x = (c["x1"] + c["x2"]) / 2
                     mid_y = (c["y1"] + c["y2"]) / 2
                     circle_r = max(10.0, max(bw, bh) * 0.008)
                     font_sz = max(8.0, max(bw, bh) * 0.0065)
-                    svg_parts.append(f'  <circle cx="{mid_x}" cy="{mid_y}" r="{circle_r}" fill="#ffffff" stroke="#e84118" stroke-width="2" />')
-                    svg_parts.append(f'  <text x="{mid_x}" y="{mid_y}" font-family="Segoe UI, sans-serif" font-size="{font_sz}" font-weight="bold" fill="#e84118" text-anchor="middle" dominant-baseline="central">{step_num}</text>')
+                    svg_parts.append(f'  <circle cx="{mid_x}" cy="{mid_y}" r="{circle_r}" fill="#ffffff" stroke="{cut_color}" stroke-width="2" />')
+                    svg_parts.append(f'  <text x="{mid_x}" y="{mid_y}" font-family="Segoe UI, sans-serif" font-size="{font_sz}" font-weight="bold" fill="{cut_color}" text-anchor="middle" dominant-baseline="central">{step_num}</text>')
         else:
             # Fallback ripiani
             shelves = ub.get("shelves", [])
             for idx, shelf in enumerate(shelves):
+                cut_color = "#c62828" if for_pdf else "#e84118"
                 if idx < len(shelves) - 1:
                     cut_y = shelf["y"] + shelf["height"]
-                    svg_parts.append(f'  <line x1="0" y1="{cut_y}" x2="{bw}" y2="{cut_y}" stroke="#e84118" stroke-width="2.5" stroke-dasharray="8,6" />')
+                    svg_parts.append(f'  <line x1="0" y1="{cut_y}" x2="{bw}" y2="{cut_y}" stroke="{cut_color}" stroke-width="2" stroke-dasharray="8,6" />')
                 
                 shelf_pieces = [p for p in pieces if abs(p["y"] - shelf["y"]) < 1e-2]
                 shelf_pieces.sort(key=lambda p: p["x"])
                 for p_idx, p in enumerate(shelf_pieces):
                     if p_idx < len(shelf_pieces) - 1:
                         cut_x = p["x"] + p["w"]
-                        svg_parts.append(f'  <line x1="{cut_x}" y1="{shelf["y"]}" x2="{cut_x}" y2="{shelf["y"] + shelf["height"]}" stroke="#e84118" stroke-width="2.5" stroke-dasharray="8,6" />')
+                        svg_parts.append(f'  <line x1="{cut_x}" y1="{shelf["y"]}" x2="{cut_x}" y2="{shelf["y"] + shelf["height"]}" stroke="{cut_color}" stroke-width="2" stroke-dasharray="8,6" />')
 
         svg_parts.append('</svg>')
         return "\n".join(svg_parts)
@@ -1395,7 +1634,7 @@ class DataManager:
         # Converte filepath in percorso assoluto per evitare problemi di risoluzione percorsi in Chrome
         abs_filepath = os.path.abspath(filepath)
         temp_html = abs_filepath.replace(".pdf", "_temp.html")
-        success = self.export_html_report(risultati, temp_html)
+        success = self.export_html_report(risultati, temp_html, for_pdf=True)
         if not success:
             return False
             

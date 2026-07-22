@@ -14,6 +14,10 @@ class CuttingOptimizer:
             # Le barre vengono considerate a tinta unita e con rotazione bloccata per mantenere l'allineamento standard
             return [(w_p, h_p)]
             
+        if str(piece.get("orientamento", "")).lower() == "neutro":
+            # Orientamento neutro: entrambe le rotazioni consentite
+            return [(w_p, h_p), (h_p, w_p)]
+
         if not respect_grain:
             # Senza venatura sui pannelli: entrambe le rotazioni consentite
             return [(w_p, h_p), (h_p, w_p)]
@@ -50,23 +54,28 @@ class CuttingOptimizer:
         # Inizializza i gruppi con le domande
         self.sfrido = sfrido
         self.panel_grain_direction = panel_grain_direction
+        self.machine_type = machine_type
         for d in demands:
             key = f"{d['thickness']}mm_{d['color_code']}"
             if key not in groups:
                 groups[key] = {"stocks": [], "demands": []}
             
             is_bar_group = False
-            if group_std_heights and key in group_std_heights:
-                is_bar_group = True
-            else:
-                is_bar_group = any(s.get("stock_type") == "semilavorato_bar" for s in stocks if f"{s['thickness']}mm_{s['color_code']}" == key)
+            has_whole_board = any(s.get("stock_type") == "whole_board" for s in stocks if f"{s['thickness']}mm_{s['color_code']}" == key)
+            if not has_whole_board:
+                if group_std_heights and key in group_std_heights:
+                    is_bar_group = True
+                else:
+                    is_bar_group = any(s.get("stock_type") == "semilavorato_bar" for s in stocks if f"{s['thickness']}mm_{s['color_code']}" == key)
                 
+            is_invert = d.get("orientamento_invertito", False) or d.get("invert_grain", False) or (str(d.get("orientamento", "")).lower() in ["orizzontale", "invertito", "h", "1"])
+            
             if is_bar_group:
-                w_raw = d["height"]  # H dell'anta diventa larghezza (asse X) del layout
-                h_raw = d["width"]   # W dell'anta diventa altezza (asse Y) del layout
+                w_raw = d["height"] if not is_invert else d["width"]  # H dell'anta diventa larghezza (asse X) del layout
+                h_raw = d["width"] if not is_invert else d["height"]   # W dell'anta diventa altezza (asse Y) del layout
             else:
-                w_raw = d["width"]
-                h_raw = d["height"]
+                w_raw = d["height"] if is_invert else d["width"]
+                h_raw = d["width"] if is_invert else d["height"]
             
             # Moltiplica per la quantità per gestire i pezzi singoli nel loop
             for _ in range(d.get("quantity", 1)):
@@ -80,7 +89,9 @@ class CuttingOptimizer:
                     "height_orig": d["height"],
                     "thickness": d["thickness"],
                     "color_code": d["color_code"],
-                    "color_desc": d["color_desc"]
+                    "color_desc": d["color_desc"],
+                    "orientamento_invertito": is_invert,
+                    "orientamento": d.get("orientamento", "")
                 })
                 
         # Ordina lo stock per priorità di consumo: 1. Residui (remnant), 2. Barre pre-tagliate (semilavorato_bar), 3. Pannelli grandi (whole_board)
@@ -148,12 +159,14 @@ class CuttingOptimizer:
             best_score = (float('inf'), float('inf'), float('inf')) # (unplaced, boards_used, waste_area)
 
             # Rileva il rispetto della venatura per questo specifico gruppo
-            if stocks_gruppo and "has_grain" in stocks_gruppo[0]:
-                group_respect_grain = stocks_gruppo[0]["has_grain"]
-            elif isinstance(respect_grain, dict):
+            if isinstance(respect_grain, dict):
                 group_respect_grain = respect_grain.get(key, False)
-            else:
+            elif respect_grain is not None:
                 group_respect_grain = respect_grain
+            elif stocks_gruppo and "has_grain" in stocks_gruppo[0]:
+                group_respect_grain = stocks_gruppo[0]["has_grain"]
+            else:
+                group_respect_grain = False
 
             # Strategie di ordinamento: altezza decrescente, area decrescente, larghezza decrescente
             sorting_strategies = [
@@ -163,11 +176,20 @@ class CuttingOptimizer:
             ]
 
             # Definiamo le configurazioni di solutori da provare
-            if machine_type == "pantografo":
+            if "pantografo" in machine_type:
                 solvers_config = [
                     ("nesting", None, None)
                 ]
+            elif "manuale" in machine_type:
+                # Per la sezionatrice manuale imponiamo il primo taglio verticale (VS)
+                # per creare fasce/strisce verticali e ridurre la manipolazione dei pannelli pesanti
+                solvers_config = [
+                    ("guillotine", "BSSF", "VS"),
+                    ("guillotine", "BLSF", "VS"),
+                    ("guillotine", "BAF", "VS")
+                ]
             else:
+                # Per la sezionatrice automatica a CNC proviamo tutti i solutori ad alta resa
                 solvers_config = [
                     ("guillotine", "BSSF", "SAS"),
                     ("guillotine", "BAF", "SAS"),
@@ -202,13 +224,25 @@ class CuttingOptimizer:
                     # Calcola il punteggio di questa soluzione
                     boards_used = len(used_boards)
                     total_waste_area = 0.0
+                    reusable_bonus_area = 0.0
+                    
                     for ub in used_boards:
                         total_waste_area += ub["waste_area"]
-                    # Penalizziamo anche l'area dei pezzi non piazzati per essere consistenti
+                        # Premia fortemente le soluzioni che generano maxi-residui unici riutilizzabili (semilavorati grandi)
+                        for sem in ub.get("new_semilavorati", []):
+                            sw, sh = sem.get("width", 0.0), sem.get("height", 0.0)
+                            area = sw * sh
+                            if sw >= min_semilavorato_width and sh >= min_semilavorato_height:
+                                # Usiamo un esponente su area per privilegiare enormemente i residui grandi e unici rispetto a molti piccoli
+                                reusable_bonus_area += (area ** 1.3)
+                    
+                    # Penalizziamo l'area dei pezzi non piazzati per essere consistenti
                     for up in unplaced:
-                        total_waste_area += up["width"] * up["height"]
-
-                    score = (len(unplaced), boards_used, total_waste_area)
+                        total_waste_area += (up["width"] * up["height"]) * 2.0  # Alta penalità per pezzi non piazzati
+                    
+                    # Punteggio finale: 1. Pezzi non piazzati, 2. Lastre usate, 3. Scarto effettivo (meno i semilavorati recuperabili)
+                    effective_waste_score = total_waste_area - reusable_bonus_area
+                    score = (len(unplaced), boards_used, effective_waste_score)
                     
                     if score < best_score:
                         best_score = score
@@ -707,10 +741,17 @@ class CuttingOptimizer:
         is_bar = ub.get("board", {}).get("stock_type") in ["semilavorato_bar", "remnant"]
         if is_bar:
             split_style = "VS"
+        elif "manuale" in str(getattr(self, "machine_type", "")).lower() and level == 1:
+            # Per la sezionatrice manuale, il primo taglio primario sul pannello intero deve essere SEMPRE VERTICALE (VS)
+            split_style = "VS"
         elif split_heuristic == "SAS":
             split_style = "VS" if (rw - w) < (rh - h) else "HS"
         elif split_heuristic == "LAS":
             split_style = "VS" if (rw - w) > (rh - h) else "HS"
+        elif split_heuristic == "VS":
+            split_style = "VS"
+        elif split_heuristic == "HS":
+            split_style = "HS"
         else:
             split_style = split_heuristic
             

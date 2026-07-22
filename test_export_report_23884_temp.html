@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <title>Report di Taglio</title>
+    <style>
+        
+        @page { size: A4 landscape; margin: 8mm; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; color: #111111; background-color: #ffffff; margin: 0; padding: 0; }
+        .container { max-width: 100%; margin: 0; background: #ffffff; padding: 0; box-shadow: none; }
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #1565c0; padding-bottom: 10px; margin-bottom: 15px; }
+        .title h1 { margin: 0; color: #1565c0; font-size: 22px; font-weight: bold; }
+        .title p { margin: 3px 0 0 0; color: #424242; font-size: 11px; }
+        .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; page-break-inside: avoid; }
+        .summary-card { background: #f8f9fa; padding: 10px 14px; border-radius: 6px; border: 1px solid #e0e0e0; border-left: 4px solid #1565c0; }
+        .summary-card.efficiency { border-left-color: #2e7d32; }
+        .summary-card.waste { border-left-color: #c62828; }
+        .card-value { font-size: 18px; font-weight: bold; color: #111111; margin-top: 3px; }
+        .card-label { font-size: 10px; text-transform: uppercase; color: #616161; font-weight: bold; letter-spacing: 0.5px; }
+        .group-section { margin-bottom: 25px; }
+        .group-header { background: #1565c0; color: #ffffff; padding: 8px 15px; border-radius: 4px; font-size: 13px; font-weight: bold; margin-bottom: 12px; page-break-after: avoid; }
+        .board-container { background: #ffffff; border: 1px solid #b0bec5; border-radius: 6px; padding: 12px; margin-bottom: 20px; page-break-inside: avoid; break-inside: avoid; }
+        .board-meta { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 12px; font-weight: bold; color: #212121; }
+        .svg-wrapper { background: #ffffff; border: 1px solid #cfd8dc; border-radius: 4px; padding: 6px; margin-top: 6px; display: flex; justify-content: center; align-items: center; }
+        .svg-wrapper svg { max-width: 100%; max-height: 380px; width: auto; height: auto; display: block; }
+        table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 11px; }
+        th, td { padding: 5px 8px; text-align: left; border: 1px solid #e0e0e0; font-size: 11px; color: #111111; }
+        th { background: #eceff1; color: #111111; font-weight: bold; }
+        .badge { display: inline-block; padding: 2px 6px; border-radius: 3px; font-size: 10px; font-weight: bold; }
+        .badge.rotated { background: #fff8e1; color: #e65100; border: 1px solid #ffe082; }
+        .badge.standard { background: #e3f2fd; color: #0d47a1; border: 1px solid #90caf9; }
+        .badge.recupero { background: #e8f5e9; color: #1b5e20; border: 1px solid #a5d6a7; }
+
+        .print-page-break { display: none; }
+        @media print {
+            body { background: #ffffff; padding: 0; margin: 0; }
+            .container { box-shadow: none; padding: 0; max-width: 100%; width: 100%; }
+            .board-container { page-break-inside: avoid; break-inside: avoid; border: 1px solid #ccc; margin-bottom: 15px; padding: 10px; }
+            .print-page-break { display: block; page-break-after: always; break-after: page; }
+            .svg-wrapper { padding: 5px; margin-top: 5px; }
+            .svg-wrapper svg { max-height: 70vh !important; max-width: 100% !important; width: auto !important; height: auto !important; }
+            table { margin: 8px 0; }
+            th, td { padding: 4px 8px; font-size: 11px; }
+            h5 { margin: 10px 0 3px 0 !important; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="title">
+                <h1>Report di Taglio</h1>
+                <p style="font-size: 15px; margin: 3px 0 0 0; color: #1565c0; font-weight: bold;">per Mobili Rossi S.r.l.</p>
+                <p>Generato il: 22/07/2026 10:07:55</p>
+            </div>
+        </div>
+        
+        <div class="summary-grid">
+            <div class="summary-card">
+                <div class="card-label">Area Barre Usate</div>
+                <div class="card-value">5.80 mq</div>
+            </div>
+            <div class="summary-card efficiency">
+                <div class="card-label">Efficienza Media</div>
+                <div class="card-value">7.45%</div>
+            </div>
+            <div class="summary-card">
+                <div class="card-label">Area Pezzi Tagliati</div>
+                <div class="card-value">0.43 mq</div>
+            </div>
+            <div class="summary-card waste">
+                <div class="card-label">Area Scarto</div>
+                <div class="card-value">5.36 mq</div>
+            </div>
+        </div>
+
+
+        <div class="group-section">
+            <div class="group-header">Materiale: Spessore 18.0mm | Codice Colore: U708 - Grigio (Efficienza: 7.45%)</div>
+            
+            <h3>Riepilogo Gruppo</h3>
+            <table>
+                <tr>
+                    <th>Barre Usate</th>
+                    <td>1</td>
+                    <th>Efficienza</th>
+                    <td>7.45%</td>
+                </tr>
+                <tr>
+                    <th>Area Totale Barre</th>
+                    <td>5.80 mq</td>
+                    <th>Area Pezzi</th>
+                    <td>0.43 mq</td>
+                </tr>
+                <tr>
+                    <th>Area Scarto</th>
+                    <td>5.36 mq</td>
+                    <th>Pezzi non piazzati</th>
+                    <td>0</td>
+                </tr>
+            </table>
+
+
+            <div class="board-container" style="">
+                <div class="board-meta">
+                    <span>Layout 1: B1 - Grigio (2070 x 2800 x 18.0 mm)</span>
+                    <span style="color: #44bd32;">Efficienza: 7.45%</span>
+                </div>
+                <div>
+                    <strong>Pezzi posizionati:</strong> 1 | 
+                    <strong>Semilavorati recuperati:</strong> 2
+                </div>
+                <div class="svg-wrapper">
+                    <svg viewBox="0 0 2800.0 2070.0" width="2800.0" height="2070.0" style="max-width: 100%; height: auto; border: 1px solid #dcdde1; background-color: #ffffff;" xmlns="http://www.w3.org/2000/svg">
+  <rect x="0" y="0" width="2800.0" height="2070.0" fill="#ffffff" stroke="#333333" stroke-width="1.5" />
+  <rect x="604.0" y="0.0" width="2196.0" height="2070.0" fill="#e8f5e9" stroke="#2e7d32" stroke-width="1.5" stroke-dasharray="6,4" />
+  <text x="1702.0" y="1035.0" font-family="Segoe UI, sans-serif" font-size="44.800000000000004" fill="#1b5e20" font-style="italic" text-anchor="middle" dominant-baseline="middle">Recupero 2196x2070</text>
+  <rect x="0.0" y="724.0" width="600.0" height="1346.0" fill="#e8f5e9" stroke="#2e7d32" stroke-width="1.5" stroke-dasharray="6,4" />
+  <text x="300.0" y="1397.0" font-family="Segoe UI, sans-serif" font-size="44.800000000000004" fill="#1b5e20" font-style="italic" text-anchor="middle" dominant-baseline="middle">Recupero 600x1346</text>
+  <rect x="0.0" y="0.0" width="600.0" height="720.0" fill="#e3f2fd" stroke="#1565c0" stroke-width="1.5" />
+  <text x="300.0" y="360.0" font-family="Segoe UI, sans-serif" font-weight="bold" font-size="44.800000000000004" fill="#0d47a1" text-anchor="middle" dominant-baseline="middle">Anta A</text>
+  <text x="300.0" y="669.6" font-family="Segoe UI, sans-serif" font-size="33.6" font-weight="bold" fill="#0d47a1" text-anchor="middle" dominant-baseline="middle">600</text>
+  <text x="50.400000000000006" y="360.0" transform="rotate(-90, 50.400000000000006, 360.0)" font-family="Segoe UI, sans-serif" font-size="33.6" font-weight="bold" fill="#0d47a1" text-anchor="middle" dominant-baseline="middle">720</text>
+  <line x1="600.0" y1="0.0" x2="600.0" y2="2070.0" stroke="#c62828" stroke-width="2" stroke-dasharray="8,6" />
+  <line x1="0.0" y1="720.0" x2="600.0" y2="720.0" stroke="#c62828" stroke-width="2" stroke-dasharray="8,6" />
+</svg>
+                </div>
+                <div class="print-page-break"></div>
+                
+                <h5 style="margin: 15px 0 5px 0;">Elenco Tagli</h5>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Pezzo</th>
+                            <th>X (mm)</th>
+                            <th>Y (mm)</th>
+                            <th>W (mm)</th>
+                            <th>H (mm)</th>
+                            <th>Stato</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+
+
+                        <tr>
+                            <td>Anta A</td>
+                            <td>0</td>
+                            <td>0</td>
+                            <td>600</td>
+                            <td>720</td>
+                            <td><span class="badge standard">Standard</span></td>
+                        </tr>
+
+
+                        <tr>
+                            <td style="color:#2ecc71; font-style:italic;">Recupero Semilavorato</td>
+                            <td>604</td>
+                            <td>0</td>
+                            <td>2196</td>
+                            <td>2070</td>
+                            <td><span class="badge recupero">Semilavorato</span></td>
+                        </tr>
+
+
+                        <tr>
+                            <td style="color:#2ecc71; font-style:italic;">Recupero Semilavorato</td>
+                            <td>0</td>
+                            <td>724</td>
+                            <td>600</td>
+                            <td>1346</td>
+                            <td><span class="badge recupero">Semilavorato</span></td>
+                        </tr>
+
+
+                    </tbody>
+                </table>
+
+
+                <h5 style="margin: 20px 0 5px 0; color: #e84118;">Sequenza Tagli Sezionatrice</h5>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Step</th>
+                            <th>Tipo Taglio</th>
+                            <th>Quota Taglio</th>
+                            <th>Lunghezza</th>
+                            <th>Coordinata Inizio/Fine</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+
+
+                        <tr>
+                            <td><strong>1</strong></td>
+                            <td>Verticale (guide X)</td>
+                            <td><strong>600 mm</strong></td>
+                            <td>2070 mm</td>
+                            <td>da Y=0 a Y=2070</td>
+                        </tr>
+
+
+                        <tr>
+                            <td><strong>2</strong></td>
+                            <td>Orizzontale (guide Y)</td>
+                            <td><strong>720 mm</strong></td>
+                            <td>600 mm</td>
+                            <td>da X=0 a X=600</td>
+                        </tr>
+
+
+                    </tbody>
+                </table>
+
+
+            </div>
+
+
+        </div>
+
+
+    </div>
+</body>
+</html>

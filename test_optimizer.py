@@ -1997,9 +1997,9 @@ def test_settings_protection_and_tabs():
         opened_dialog = None
         original_init = DbSettingsDialog.__init__
         
-        def mock_init(self, parent, data_manager, app_inst):
+        def mock_init(self, *args, **kwargs):
             nonlocal opened_dialog
-            original_init(self, parent, data_manager, app_inst)
+            original_init(self, *args, **kwargs)
             opened_dialog = self
             
         DbSettingsDialog.__init__ = mock_init
@@ -2009,7 +2009,7 @@ def test_settings_protection_and_tabs():
         
         # Verifica la presenza delle linguette (Notebook)
         assert hasattr(opened_dialog, "notebook")
-        assert len(opened_dialog.notebook.tabs()) == 3
+        assert len(opened_dialog.notebook.tabs()) == 4
         
         # Inserisci nuovi dati standard e cliente
         opened_dialog.ent_def_kerf.delete(0, tk.END)

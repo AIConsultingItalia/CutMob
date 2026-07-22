@@ -10,13 +10,22 @@ from renderer import LayoutRenderer
 class CutMobApp:
     def __init__(self, root):
         self.root = root
-        self.APP_VERSION = "2.1.5"
+        self.APP_VERSION = "2.2.6"
         self.root.title("CutMob - Ottimizzatore di Taglio Pannelli")
         self.root.geometry("1100x700")
         self.root.minsize(900, 600)
         
         # Inizializza DataManager e Renderer
         self.data_manager = DataManager()
+        
+        # Imposta icona finestra
+        base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+        icon_ico = os.path.join(base_path, "app_icon.ico")
+        if os.path.exists(icon_ico):
+            try:
+                self.root.iconbitmap(icon_ico)
+            except Exception:
+                pass
         
         # Controllo della licenza all'avvio
         if not self.check_license_startup():
@@ -220,13 +229,15 @@ class CutMobApp:
 
         # Tipo Macchina
         ttk.Label(sidebar, text="Tipo Macchinario:", background=self.bg_card).pack(anchor=tk.W, pady=(2, 0))
-        self.cmb_macchina = ttk.Combobox(sidebar, values=["Sezionatrice", "Pantografo"], state="readonly")
+        self.cmb_macchina = ttk.Combobox(sidebar, values=["Sezionatrice Manuale", "Sezionatrice Automatica CNC", "Pantografo CNC"], state="readonly")
         
-        default_macch = config.get("default_macchina", "sezionatrice")
-        if default_macch.lower() == "pantografo":
-            self.cmb_macchina.set("Pantografo")
+        default_macch = config.get("default_macchina", "sezionatrice_automatica")
+        if "pantografo" in default_macch.lower():
+            self.cmb_macchina.set("Pantografo CNC")
+        elif "manuale" in default_macch.lower():
+            self.cmb_macchina.set("Sezionatrice Manuale")
         else:
-            self.cmb_macchina.set("Sezionatrice")
+            self.cmb_macchina.set("Sezionatrice Automatica CNC")
         self.cmb_macchina.pack(fill=tk.X, pady=(1, 4))
         
         # Venatura (Grain) - Rimosso dalla UI maschera sinistra per richiesta utente
@@ -240,8 +251,8 @@ class CutMobApp:
         self.stock_frame.pack(fill=tk.X, pady=(1, 4))
         
         self.var_stock_residuo = tk.BooleanVar(value=config.get("default_use_residuo", True))
-        self.var_stock_pannello = tk.BooleanVar(value=config.get("default_use_barra", True))
-        self.var_stock_barra = tk.BooleanVar(value=config.get("default_use_pannello", True))
+        self.var_stock_pannello = tk.BooleanVar(value=config.get("default_use_pannello", True))
+        self.var_stock_barra = tk.BooleanVar(value=config.get("default_use_barra", True))
         
         chk_residuo = tk.Checkbutton(self.stock_frame, text="Residuo (♻️)", variable=self.var_stock_residuo,
                                      command=self.update_vis_tabs_visibility,
@@ -287,13 +298,15 @@ class CutMobApp:
         self.btn_open_html_dir = ttk.Button(f_export_html, text="📂", width=3, command=self.open_html_dir, state=tk.DISABLED)
         self.btn_open_html_dir.pack(side=tk.RIGHT, padx=(5, 0))
         
-        # Frame Esporta PDF con pulsante Apri Cartella
+        # Frame Esporta PDF con pulsanti Anteprima e Apri Cartella
         f_export_pdf = ttk.Frame(sidebar, style="Card.TFrame")
         f_export_pdf.pack(fill=tk.X, pady=2)
         self.btn_export_pdf = ttk.Button(f_export_pdf, text="ESPORTA REPORT PDF", style="TButton", command=self.export_pdf_report, state=tk.DISABLED)
         self.btn_export_pdf.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        self.btn_view_pdf = ttk.Button(f_export_pdf, text="👁️", width=3, command=self.open_pdf_file, state=tk.DISABLED)
+        self.btn_view_pdf.pack(side=tk.RIGHT, padx=(2, 0))
         self.btn_open_pdf_dir = ttk.Button(f_export_pdf, text="📂", width=3, command=self.open_pdf_dir, state=tk.DISABLED)
-        self.btn_open_pdf_dir.pack(side=tk.RIGHT, padx=(5, 0))
+        self.btn_open_pdf_dir.pack(side=tk.RIGHT, padx=(2, 0))
         
         # Label per notifica aggiornamento disponibile (nascosto di default)
         self.lbl_update_available = tk.Label(
@@ -543,7 +556,7 @@ class CutMobApp:
         self.btn_calc_req.pack(side=tk.RIGHT, padx=2)
         
         # Treeview pezzi
-        cols = ("idx", "desc", "dim", "thick", "color_code", "color_desc", "qty")
+        cols = ("idx", "desc", "dim", "thick", "color_code", "color_desc", "orient", "qty")
         self.tree_pieces = ttk.Treeview(frame_dettaglio, columns=cols, show="headings")
         self.tree_pieces.pack(fill=tk.BOTH, expand=True)
         self.tree_pieces.heading("idx", text="N°")
@@ -552,20 +565,23 @@ class CutMobApp:
         self.tree_pieces.heading("thick", text="Spessore (mm)")
         self.tree_pieces.heading("color_code", text="Cod. Colore")
         self.tree_pieces.heading("color_desc", text="Desc. Colore")
+        self.tree_pieces.heading("orient", text="Orientamento")
         self.tree_pieces.heading("qty", text="Quantità")
         self.tree_pieces.column("idx", width=40, anchor=tk.CENTER)
         self.tree_pieces.column("desc", width=180, anchor=tk.W)
         self.tree_pieces.column("dim", width=150, anchor=tk.CENTER)
         self.tree_pieces.column("thick", width=80, anchor=tk.CENTER)
         self.tree_pieces.column("color_code", width=80, anchor=tk.CENTER)
-        self.tree_pieces.column("color_desc", width=200, anchor=tk.W)
-        self.tree_pieces.column("qty", width=80, anchor=tk.CENTER)
+        self.tree_pieces.column("color_desc", width=180, anchor=tk.W)
+        self.tree_pieces.column("orient", width=120, anchor=tk.CENTER)
+        self.tree_pieces.column("qty", width=70, anchor=tk.CENTER)
         
         self.tree_pieces.bind("<Double-1>", self.edit_piece_dialog)
         self.tree_pieces.bind("<Button-3>", lambda e: self.on_heading_right_click(e, "pezzi"))
         self.tree_pieces.bind("<F5>", lambda e: self.open_bulk_edit_dialog("pezzi"))
         self.tree_pieces.bind("<F3>", self.toggle_pieces_green)
         self.tree_pieces.tag_configure("green_item", background="#d4edda", foreground="#155724")
+        self.tree_pieces.tag_configure("missing_color", background="#ffe8e8", foreground="#c23616")
         
         # Configura ordinamento al clic sulle intestazioni
         for col in cols:
@@ -880,6 +896,10 @@ class CutMobApp:
             self.reload_prod_panels_table()
 
     def reload_order_table(self):
+        # Carica mappa venature ed elenco codici colore validi
+        color_grain_map = self.get_color_grain_map()
+        stock_colors = {str(c).strip().lower() for c in color_grain_map.keys() if c}
+
         # Ordina la commessa per Colore, Spessore, Larghezza, Altezza
         self.current_order.sort(key=lambda p: (
             p.get("color_code", ""),
@@ -900,6 +920,20 @@ class CutMobApp:
             else:
                 qty_display = str(qty_val)
 
+            # Verifica presenza colore nel magazzino
+            color_code_val = str(p.get("color_code", "")).strip()
+            color_missing = not color_code_val or (color_code_val.lower() not in stock_colors) or color_code_val.lower() == "n/d"
+
+            # Determinazione orientamento per la tabella
+            orient_str = str(p.get("orientamento", "")).lower()
+            has_grain = color_grain_map.get(p.get("color_code", ""), False)
+            
+            if orient_str == "neutro" or not has_grain:
+                orient_display = "Neutro ⚪"
+            else:
+                is_orient_inv = p.get("orientamento_invertito", False) or (orient_str in ["orizzontale", "invertito", "h", "1"])
+                orient_display = "Invertito ↔" if is_orient_inv else "Standard ↕"
+
             # Filtro pezzi
             match = True
             for col_name, filter_val in self.filters_pieces.items():
@@ -916,6 +950,8 @@ class CutMobApp:
                     val_to_check = str(p["color_code"])
                 elif col_name == "color_desc":
                     val_to_check = str(p["color_desc"])
+                elif col_name == "orient":
+                    val_to_check = orient_display
                 elif col_name == "qty":
                     val_to_check = qty_display
                 
@@ -926,7 +962,13 @@ class CutMobApp:
                 continue
 
             dim_str = f"{int(p['height'])} x {int(p['width'])}"
-            tags = ("green_item",) if p.get("is_green", False) else ()
+            if color_missing:
+                tags = ("missing_color",)
+            elif p.get("is_green", False):
+                tags = ("green_item",)
+            else:
+                tags = ()
+
             self.tree_pieces.insert("", tk.END, values=(
                 idx + 1,
                 p["descrizione"],
@@ -934,6 +976,7 @@ class CutMobApp:
                 p["thickness"],
                 p["color_code"],
                 p["color_desc"],
+                orient_display,
                 qty_display
             ), tags=tags)
 
@@ -1066,7 +1109,7 @@ class CutMobApp:
                 progress_dialog.destroy()
                 
                 if ext == ".zip":
-                    messagebox.showinfo("Aggiornamento", "Download completato con successo!\nL'applicazione verrà chiusa per completare l'estrazione e l'aggiornamento.")
+                    messagebox.showinfo("Aggiornamento", "Download completato con successo!\nL'applicazione verrà chiusa per completare l'aggiornamento.")
                     
                     extract_path = os.path.join(temp_dir, "extracted")
                     if os.path.exists(extract_path):
@@ -1077,34 +1120,63 @@ class CutMobApp:
                     with zipfile.ZipFile(dest_file, 'r') as zip_ref:
                         zip_ref.extractall(extract_path)
                     
-                    bat_path = os.path.join(temp_dir, "update.bat")
-                    src_folder = os.path.join(extract_path, "CutMob")
-                    if not os.path.exists(src_folder):
-                        src_folder = extract_path
+                    # Controlla se lo zip contiene l'installer eseguibile Setup_CutMob.exe
+                    setup_exe = os.path.join(extract_path, "Setup_CutMob.exe")
+                    if not os.path.exists(setup_exe):
+                        for r, d, f in os.walk(extract_path):
+                            if "Setup_CutMob.exe" in f:
+                                setup_exe = os.path.join(r, "Setup_CutMob.exe")
+                                break
+
+                    if os.path.exists(setup_exe):
+                        def finalize_exe_from_zip():
+                            subprocess.Popen([setup_exe], shell=True)
+                            self.root.destroy()
+                            import os
+                            os._exit(0)
+                        self.root.after(0, finalize_exe_from_zip)
+                    else:
+                        bat_path = os.path.join(temp_dir, "update.bat")
+                        src_folder = os.path.join(extract_path, "CutMob")
+                        if not os.path.exists(src_folder):
+                            src_folder = extract_path
+                            
+                        with open(bat_path, "w", encoding="cp1252") as f:
+                            f.write(f'@echo off\n')
+                            f.write(f'title Aggiornamento CutMob in corso...\n')
+                            f.write(f'echo Attendere l\'installazione dell\'aggiornamento...\n')
+                            f.write(f'taskkill /f /im CutMob.exe >nul 2>&1\n')
+                            f.write(f'timeout /t 2 /nobreak > nul\n')
+                            f.write(f'xcopy /y /e /h /r "{src_folder}\\*.*" "C:\\CutMob\\"\n')
+                            f.write(f'start C:\\CutMob\\CutMob.exe\n')
+                            f.write(f'exit\n')
                         
-                    with open(bat_path, "w", encoding="cp1252") as f:
-                        f.write(f'@echo off\n')
-                        f.write(f'title Aggiornamento CutMob in corso...\n')
-                        f.write(f'echo Attendere l\'installazione dell\'aggiornamento...\n')
-                        f.write(f'timeout /t 2 /nobreak > nul\n')
-                        f.write(f'xcopy /y /e /h /r "{src_folder}\\*.*" "C:\\CutMob\\"\n')
-                        f.write(f'start C:\\CutMob\\CutMob.exe\n')
-                        f.write(f'exit\n')
-                    
-                    subprocess.Popen([bat_path], shell=True)
+                        def finalize_zip():
+                            subprocess.Popen([bat_path], shell=True)
+                            self.root.destroy()
+                            import os
+                            os._exit(0)
+                        self.root.after(0, finalize_zip)
                     
                 elif ext == ".exe":
                     messagebox.showinfo("Aggiornamento", "Download completato con successo!\nL'applicazione verrà chiusa per avviare l'installazione.")
-                    subprocess.Popen([dest_file], shell=True)
+                    def finalize_exe():
+                        subprocess.Popen([dest_file], shell=True)
+                        self.root.destroy()
+                        import os
+                        os._exit(0)
+                    self.root.after(0, finalize_exe)
                 else:
                     messagebox.showinfo("Aggiornamento", f"Download completato!\nIl file è stato scaricato in:\n{dest_file}\nAprilo per completare l'installazione.")
-                    if hasattr(os, 'startfile'):
-                        os.startfile(temp_dir)
-                    else:
-                        subprocess.Popen(['open', temp_dir])
-                
-                self.root.destroy()
-                sys.exit(0)
+                    def finalize_other():
+                        if hasattr(os, 'startfile'):
+                            os.startfile(temp_dir)
+                        else:
+                            subprocess.Popen(['open', temp_dir])
+                        self.root.destroy()
+                        import os
+                        os._exit(0)
+                    self.root.after(0, finalize_other)
             except Exception as e:
                 progress_dialog.destroy()
                 messagebox.showerror("Errore Aggiornamento", f"Si è verificato un errore durante il download o l'estrazione: {e}")
@@ -1122,16 +1194,21 @@ class CutMobApp:
             return True
             
         key_str = self.data_manager.load_license_key()
-        client_name = config.get("client_name", "")
-        client_cf_piva = config.get("client_cf_piva", "")
         
         is_valid = False
         msg = "Licenza non trovata."
         lic_data = None
         if key_str:
-            is_valid, msg, lic_data = verifica_chiave_licenza(key_str, client_name, client_cf_piva)
+            is_valid, msg, lic_data = verifica_chiave_licenza(key_str)
             
-        if is_valid:
+        if is_valid and lic_data:
+            real_name = lic_data.get("ragione_sociale", "").strip()
+            real_piva = lic_data.get("partita_iva", "").strip()
+            if real_name:
+                config["client_name"] = real_name
+            if real_piva:
+                config["client_cf_piva"] = real_piva
+                
             # Controllo anti-manomissione orologio di sistema
             today_str = datetime.now().strftime("%Y-%m-%d")
             last_run = config.get("last_run_date", "")
@@ -1147,9 +1224,11 @@ class CutMobApp:
             # Aggiorna la data dell'ultimo avvio corretto
             config["last_run_date"] = max(today_str, last_run) if last_run else today_str
             self.data_manager.save_config(config)
+            self.update_client_display()
             
             exp_date = lic_data.get("data_fine", "")
-            self.root.title(f"CutMob - Ottimizzatore di Taglio (Licenza attiva fino a {exp_date})")
+            title_name = f" per {real_name}" if real_name else ""
+            self.root.title(f"CutMob - Ottimizzatore di Taglio{title_name} (Licenza attiva fino a {exp_date})")
             return True
             
         dialog = tk.Toplevel(self.root)
@@ -1285,8 +1364,8 @@ Benvenuto in CutMob, l'ottimizzatore professionale di taglio bidimensionale per 
 
 Scorciatoie Rapide Globali:
 • [F1] : Apre questo manuale d'uso in qualunque momento.
-• [F3] : Attiva/Disattiva la selezione parziale (colore verde) sulle righe dei pezzi selezionati.
-• [F4] : Mostra/Nascondi il numero progressivo di taglio sullo schema grafico e sui report.
+• [F3] : Attiva/Disattiva la selezione parziale (evidenziazione verde) sulle righe dei pezzi selezionati.
+• [F4] : Mostra/Nascondi la numerazione progressiva della sequenza dei tagli sui layout grafici e sui report.
 • [F5] : Apre la griglia stile Excel per duplicare e modificare in serie i record selezionati.
 • [Tasto dx mouse] : Consente di cercare e filtrare i dati cliccando sulle intestazioni delle tabelle.
 
@@ -1302,14 +1381,17 @@ L'installazione e gli aggiornamenti di CutMob sono gestiti in modo centralizzato
 3. Aggiornamento Software: Se l'installer rileva una chiave di licenza attiva in "C:\CutMob\DbDati\licenza.key", procederà in modalità "Solo Aggiornamento". Aggiornerà i file eseguibili del programma ma preserverà intatti i tuoi dati storici, database delle commesse e file di configurazione personali.
 4. Attivazione Licenza: Incolla il codice di licenza ricevuto nell'apposita schermata di attivazione all'avvio. La licenza è legata ai dati cliente ("Ragione Sociale" e "Partita IVA/C.F.") configurati nelle impostazioni di sistema.
 
-FASE 2: CONFIGURAZIONE E PARAMETRI MACCHINA
----------------------------------------------
-Prima di procedere ai tagli, assicurati di configurare correttamente i parametri macchina:
+FASE 2: CONFIGURAZIONE E PROFILAZIONE MACCHINARI
+--------------------------------------------------
+Prima di procedere ai tagli, assicurati di configurare correttamente i parametri macchina nella sidebar o nelle impostazioni generali (⚙️):
 1. Accedi alle Impostazioni: Clicca sul pulsante con l'ingranaggio (⚙️) in alto a destra. L'accesso è protetto da password amministratore per prevenire modifiche accidentali da parte degli operatori.
-2. Parametri di Taglio: Imposta il "Kerf" (spessore lama della sezionatrice, es. 5 mm), i "Rifili" (margini asportati dai quattro lati del pannello prima dell'ottimizzazione) e lo "Sfrido" (tollerranza aggiunta ad ogni pezzo, applicata solo sui pannelli grandi interii).
-3. Selezione Macchina:
-   - "Sezionatrice": Ottimizza i tagli in modo continuo da un lato all'altro della lastra (tagli a ghigliottina, indicati per squadratrici o sezionatrici orizzontali/verticali).
-   - "Pantografo": Esegue nesting libero tramite algoritmo MaxRects, ottimizzando il posizionamento senza vincoli di taglio passante (ideale per centri di lavoro CNCFASE 3: GESTIONE DEL MAGAZZINO E CARICAMENTO CODICI
+2. Parametri di Taglio: Imposta il "Kerf" (spessore lama della sezionatrice, es. 5 mm), i "Rifili" (margini asportati dai quattro lati del pannello prima dell'ottimizzazione) e lo "Sfrido" (tolleranza aggiunta ad ogni pezzo, applicata solo sui pannelli grandi interi).
+3. Selezione Tipologia Macchinario:
+   - "Sezionatrice Manuale": Impone che il primo taglio primario sul pannello grezzo sia sempre Verticale (VS - Vertical Split). In questo modo il pannello viene diviso in fasce/strisce verticali, evitando all'operatore la faticosa movimentazione manuale e rotazione dell'intero pannello grezzo pesante in orizzontale.
+   - "Sezionatrice Automatica CNC": Esegue l'ottimizzazione multi-direzionale combinatoria ad altissima resa (BSSF, BAF, SAS, LAS) per ridurre al minimo lo scarto percentuale, sfruttando gli automatismi dello spintore a controllo numerico.
+   - "Pantografo CNC": Esegue nesting libero tramite algoritmo MaxRects, ottimizzando il posizionamento senza vincoli di taglio passante (ideale per centri di lavoro CNC a piano aspirante con fresa).
+
+FASE 3: GESTIONE DEL MAGAZZINO E CARICAMENTO CODICI
 -----------------------------------------------------
 Per poter calcolare le commesse, devi caricare i formati di magazzino disponibili:
 1. Formati e Tabelle: Nella scheda "Magazzino (Stock)" sono presenti due tabelle distinte:
@@ -1322,13 +1404,20 @@ Per poter calcolare le commesse, devi caricare i formati di magazzino disponibil
 3. Controllo ID Duplicati: All'atto del salvataggio, il sistema verifica che il codice ID inserito sia univoco nel database, impedendo la creazione di doppioni.
 4. Importazione Massiva CSV: Puoi importare interi elenchi di magazzino tramite file CSV. Facendo clic su "Importa CSV", la finestra si aprirà direttamente nelle cartelle predefinite di rete ("C:\Report\Pannelli" per pannelli e "C:\Report\Barre" per semilavorati).
 
-FASE 4: COMPILAZIONE DELLA COMMESSA (ORDINE DI TAGLIO)
---------------------------------------------------------
+FASE 4: COMPILAZIONE COMMESSA, VERIFICA COLORI ED ORIENTAMENTO
+----------------------------------------------------------------
 Nella scheda "Commessa / Ordine" prepari la distinta dei pezzi da produrre:
 1. Gestione Commessa: Puoi creare una "Nuova" commessa, salvarla nel database interno ("Salva"), o cancellarla ("Elimina"). 
 2. Stato Commessa: Una commessa può essere impostata su "Chiusa". Se chiusa, viene congelata: non potrai più modificarne i pezzi, importare CSV o avviare ottimizzazioni, garantendo la tracciabilità delle lavorazioni già spedite.
-3. Inserimento Pezzi: Aggiungi i pezzi da tagliare specificando Descrizione, Larghezza, Altezza, Spessore, Codice Colore e Quantità. Puoi inserire i dati a mano (form pulito), importarli tramite CSV (la cartella di partenza predefinita è "C:\Report\Elem_Cutmob") o duplicarli.
-4. Selezione Parziale (F3): Se vuoi tagliare solo una parte della commessa, seleziona le righe interessate e premi [F3] per evidenziarle in verde. I calcoli e l'ottimizzazione verranno eseguiti solo su queste righe.
+3. Inserimento Pezzi e Orientamento: Aggiungi i pezzi da tagliare specificando Descrizione, Dimensioni, Spessore, Codice Colore, Orientamento e Quantità.
+   - Orientamento Pezzo: Nella maschera di inserimento/modifica pezzo puoi scegliere tra:
+     * "Standard ↕ (Verticale)": Allinea la vena in verticale.
+     * "Invertito ↔ (Orizzontale)": Ruota la vena in orizzontale.
+     * "Neutro": Indica un pezzo a tinta unita senza venatura o privo di vincolo di orientamento.
+4. Verifica Codici Colore a Magazzino: All'importazione o compilazione, il sistema verifica se il codice colore del pezzo è presente tra i Pannelli o le Barre a magazzino.
+   - Se il codice colore è Mancante o N/D: La riga della commessa viene evidenziata in rosso chiaro (#ffe8e8) per richiamare subito l'attenzione dell'operatore.
+   - Se il colore non ha venatura (Tinta Unita) o l'orientamento è neutro: La colonna "Orientamento" mostra il simbolo dedicato "Neutro ⚪". L'ottimizzatore potrà così ruotare liberamente il pezzo a 90° su qualsiasi pannello per ridurre lo scarto.
+5. Selezione Parziale (F3): Se vuoi tagliare solo una parte della commessa, seleziona le righe interessate e premi [F3] per evidenziarle in verde. I calcoli e l'ottimizzazione verranno eseguiti solo su queste righe.
 
 FASE 5: DUPLICAZIONE E MODIFICA MASSIVA (TASTO F5)
 ----------------------------------------------------
@@ -1387,11 +1476,13 @@ Lo "Sfrido" impostato nella configurazione (es. 10 mm) è un margine aggiunto al
 • Applicazione: Lo sfrido viene calcolato ed aggiunto unicamente quando i pezzi vengono tagliati a partire da Pannelli Standard grezzi interi.
 • Esclusione: Sulle barre semilavorate standard e sui residui di magazzino, lo sfrido non viene applicato (vale 0.0 mm) per preservare i bordi esistenti e ricavare i pezzi a misura reale.
 
-4. DIFFERENZA DETTAGLIATA TRA SEZIONATRICE E PANTOGRAFO
+4. DIFFERENZA DETTAGLIATA TRA LE TIPOLOGIE DI MACCHINARI
 -------------------------------------------------------
-• 🪚 Sezionatrice (Taglio a Ghigliottina / Guillotine Cutting):
-  I tagli devono essere passanti (da bordo a bordo del pannello o sottomodulo). Non è possibile eseguire intagli a "L" o fermare la lama a metà pannello. Utilizza combinazioni di euristiche di ghigliottina 2D e Shelf Packing. Nel visualizzatore e nei report compaiono linee tratteggiate rosse numerate (attivabili con F4) per indicare la sequenza di taglio.
-• 🌀 Pantografo (Nesting Libero / MaxRects):
+• 🪵 Sezionatrice Manuale / Squadratrice (Tagli a Ghigliottina a Strisce Verticali):
+  Pensata per macchine manuali o guidate da operatore. Impone che il PRIMO taglio sul pannello grezzo sia sempre Verticale (VS). In questo modo il pannello viene diviso in fasce/strisce verticali lungo la larghezza; l'operatore preleva la singola striscia ed esegue i tagli trasversali secondari su di essa, evitando la faticosa movimentazione e rotazione dell'intero pannello grezzo pesante in orizzontale.
+• ⚙️ Sezionatrice Automatica CNC (Tagli a Ghigliottina ad Alta Resa Multi-Direzionale):
+  Pensata per sezionatrici a controllo numerico con spintore automatico. Sfrutta l'intera gamma di euristiche combinatorie a ghigliottina (BSSF, BAF, SAS, LAS) e tagli di testa per spingere al massimo la resa percentuale del materiale e ridurre al minimo lo scarto complessivo.
+• 🌀 Pantografo CNC (Nesting Libero / MaxRects):
   Elimina il vincolo del taglio passante. I pezzi possono essere posizionati in qualsiasi punto libero della lastra, anche nidificati l'uno dentro l'altro. Utilizza l'algoritmo MaxRects con euristica Best Short Side Fit (BSSF). Indicato per centri di lavoro CNC router dotati di piano aspirante.
 """
         
@@ -1521,15 +1612,16 @@ Lo "Sfrido" impostato nella configurazione (es. 10 mm) è un margine aggiunto al
         use_barra = self.var_stock_barra.get()
         
         panel_grain_direction = "verticale"
-        if use_barra:
-            # Mostra la scelta solo se almeno uno dei pannelli coinvolti ha la venatura attiva
-            order_keys = {(p["thickness"], p["color_code"]) for p in optimization_order}
-            has_grain_panels = any(
-                b.get("has_grain", False) for b in raw_barre
-                if (b["thickness"], b["color_code"]) in order_keys
-            )
-            if has_grain_panels:
-                panel_grain_direction = self.ask_panel_grain_direction()
+        # if use_barra or use_pannello:
+        #     order_keys = {(p["thickness"], p["color_code"]) for p in optimization_order}
+        #     has_grain_panels = any(
+        #         s.get("has_grain", False) for s in (raw_barre + raw_semis)
+        #         if (s["thickness"], s["color_code"]) in order_keys
+        #     ) or any(
+        #         color_grain_map.get(p["color_code"], False) for p in optimization_order
+        #     )
+        #     if has_grain_panels:
+        #         panel_grain_direction = self.ask_panel_grain_direction()
         
         if not (use_residuo or use_pannello or use_barra):
             messagebox.showerror("Errore", "Selezionare almeno un tipo di materiale da utilizzare nel magazzino (Residuo, Pannello o Barra).")
@@ -1551,9 +1643,9 @@ Lo "Sfrido" impostato nella configurazione (es. 10 mm) è un margine aggiunto al
         respect_grain_dict = {}
         for p in optimization_order:
             key = f"{p['thickness']}mm_{p['color_code']}"
-            matching_semi = next((s for s in raw_semis if f"{s['thickness']}mm_{s['color_code']}" == key), None)
-            if matching_semi:
-                respect_grain_dict[key] = matching_semi.get("has_grain", False)
+            matching_stock = next((s for s in (raw_semis + raw_barre) if f"{s['thickness']}mm_{s['color_code']}" == key), None)
+            if matching_stock:
+                respect_grain_dict[key] = matching_stock.get("has_grain", False)
             else:
                 respect_grain_dict[key] = color_grain_map.get(p["color_code"], False)
 
@@ -1809,15 +1901,15 @@ Lo "Sfrido" impostato nella configurazione (es. 10 mm) è un margine aggiunto al
         use_barra = self.var_stock_barra.get()
         
         panel_grain_direction = "verticale"
-        if use_barra:
-            # Mostra la scelta solo se almeno uno dei pannelli coinvolti ha la venatura attiva
-            order_keys = {(p["thickness"], p["color_code"]) for p in optimization_order}
-            has_grain_panels = any(
-                b.get("has_grain", False) for b in raw_barre
-                if (b["thickness"], b["color_code"]) in order_keys
-            )
-            if has_grain_panels:
-                panel_grain_direction = self.ask_panel_grain_direction()
+        # if use_barra:
+        #     # Mostra la scelta solo se almeno uno dei pannelli coinvolti ha la venatura attiva
+        #     order_keys = {(p["thickness"], p["color_code"]) for p in optimization_order}
+        #     has_grain_panels = any(
+        #         b.get("has_grain", False) for b in raw_barre
+        #         if (b["thickness"], b["color_code"]) in order_keys
+        #     )
+        #     if has_grain_panels:
+        #         panel_grain_direction = self.ask_panel_grain_direction()
         
         if not (use_residuo or use_pannello or use_barra):
             messagebox.showerror("Errore", "Selezionare almeno un tipo di materiale da utilizzare nel magazzino (Residuo, Pannello o Barra).")
@@ -3405,7 +3497,13 @@ Lo "Sfrido" impostato nella configurazione (es. 10 mm) è un margine aggiunto al
             if success:
                 self.last_pdf_export_path = filepath
                 self.btn_open_pdf_dir.config(state=tk.NORMAL)
-                messagebox.showinfo("Report PDF Esportato", f"Il report PDF è stato salvato con successo in:\n{filepath}")
+                self.btn_view_pdf.config(state=tk.NORMAL)
+                ans = messagebox.askyesno(
+                    "Report PDF Generato",
+                    f"Il report PDF è stato salvato con successo in:\n{filepath}\n\nDesideri aprire subito l'anteprima per la visualizzazione e la stampa?"
+                )
+                if ans:
+                    self.open_pdf_file()
             else:
                 messagebox.showerror("Errore PDF", "Errore nella generazione del report PDF con Chrome Headless.")
         finally:
@@ -3416,6 +3514,11 @@ Lo "Sfrido" impostato nella configurazione (es. 10 mm) è un margine aggiunto al
             folder = os.path.dirname(os.path.abspath(self.last_html_export_path))
             if os.path.exists(folder):
                 os.startfile(folder)
+
+    def open_pdf_file(self):
+        """Apre il file PDF dell'ultimo report generato nel visualizzatore/anteprima di sistema."""
+        if self.last_pdf_export_path and os.path.exists(self.last_pdf_export_path):
+            os.startfile(self.last_pdf_export_path)
 
     def open_pdf_dir(self):
         if self.last_pdf_export_path:
@@ -4086,7 +4189,7 @@ Lo "Sfrido" impostato nella configurazione (es. 10 mm) è un margine aggiunto al
         dialog = tk.Toplevel(self.root)
         is_edit = edit_index is not None
         dialog.title("Modifica Pezzo dell'Ordine" if is_edit else "Aggiungi Pezzo all'Ordine")
-        dialog.geometry("350x460")
+        dialog.geometry("350x520")
         dialog.grab_set()
         
         current_item = self.current_order[edit_index] if is_edit else None
@@ -4103,11 +4206,29 @@ Lo "Sfrido" impostato nella configurazione (es. 10 mm) è un margine aggiunto al
         
         entries = {}
         for idx, (label_text, var_name, default) in enumerate(fields):
-            ttk.Label(dialog, text=label_text).pack(anchor=tk.W, padx=15, pady=(5, 1))
+            ttk.Label(dialog, text=label_text).pack(anchor=tk.W, padx=15, pady=(4, 1))
             entry = ttk.Entry(dialog)
             entry.insert(0, default)
             entry.pack(fill=tk.X, padx=15)
             entries[var_name] = entry
+
+        # Orientamento venatura per il pezzo singolo
+        ttk.Label(dialog, text="Orientamento / Venatura Pezzo:").pack(anchor=tk.W, padx=15, pady=(4, 1))
+        cmb_orient = ttk.Combobox(dialog, values=["Standard ↕ (Verticale)", "Invertito ↔ (Orizzontale)", "Neutro"], state="readonly")
+        init_orient = "Verticale"
+        if is_edit:
+            init_orient = current_item.get("orientamento", "Verticale")
+            if init_orient not in ["Verticale", "Orizzontale", "neutro"]:
+                init_orient_inv = current_item.get("orientamento_invertito", False) or (str(current_item.get("orientamento", "")).lower() in ["orizzontale", "invertito", "h", "1"])
+                init_orient = "Orizzontale" if init_orient_inv else "Verticale"
+        
+        if init_orient == "Orizzontale":
+            cmb_orient.set("Invertito ↔ (Orizzontale)")
+        elif init_orient == "neutro":
+            cmb_orient.set("Neutro")
+        else:
+            cmb_orient.set("Standard ↕ (Verticale)")
+        cmb_orient.pack(fill=tk.X, padx=15, pady=(0, 4))
             
         def save():
             try:
@@ -4118,6 +4239,17 @@ Lo "Sfrido" impostato nella configurazione (es. 10 mm) è un margine aggiunto al
                 cc = entries["ent_cc"].get().strip()
                 cd = entries["ent_cd"].get().strip()
                 q = int(entries["ent_q"].get())
+                
+                orient_val = cmb_orient.get()
+                if "Invertito" in orient_val:
+                    orient_str = "Orizzontale"
+                    is_invert = True
+                elif "Neutro" in orient_val:
+                    orient_str = "neutro"
+                    is_invert = False
+                else:
+                    orient_str = "Verticale"
+                    is_invert = False
                 
                 if not desc or w <= 0 or h <= 0 or t <= 0 or not cc or q <= 0:
                     raise ValueError()
@@ -4132,6 +4264,8 @@ Lo "Sfrido" impostato nella configurazione (es. 10 mm) è un margine aggiunto al
                 "thickness": t,
                 "color_code": cc,
                 "color_desc": cd,
+                "orientamento_invertito": is_invert,
+                "orientamento": orient_str,
                 "quantity": q
             }
             
@@ -4245,6 +4379,7 @@ Lo "Sfrido" impostato nella configurazione (es. 10 mm) è un margine aggiunto al
                 ("Spessore (mm)", 90),
                 ("Cod. Colore", 90),
                 ("Desc. Colore", 180),
+                ("Orientamento", 110),
                 ("Quantità", 80)
             ]
 
@@ -4368,10 +4503,17 @@ Lo "Sfrido" impostato nella configurazione (es. 10 mm) è un margine aggiunto al
                 ent_cd.grid(row=row_idx, column=5, padx=1, pady=1, sticky="ew")
                 row_widgets["color_desc"] = ent_cd
                 
+                # Orientamento
+                cb_orient = ttk.Combobox(scrollable_frame, values=["Standard ↕", "Invertito ↔"], state="readonly")
+                is_inv = item.get("orientamento_invertito", False) or (str(item.get("orientamento", "")).lower() in ["orizzontale", "invertito", "h", "1"])
+                cb_orient.set("Invertito ↔" if is_inv else "Standard ↕")
+                cb_orient.grid(row=row_idx, column=6, padx=1, pady=1, sticky="ew")
+                row_widgets["orient_widget"] = cb_orient
+
                 # Q
                 ent_q = ttk.Entry(scrollable_frame)
                 ent_q.insert(0, str(item.get("quantity", 1)))
-                ent_q.grid(row=row_idx, column=6, padx=1, pady=1, sticky="ew")
+                ent_q.grid(row=row_idx, column=7, padx=1, pady=1, sticky="ew")
                 row_widgets["quantity"] = ent_q
                 
             row_entries.append(row_widgets)
@@ -4470,6 +4612,7 @@ Lo "Sfrido" impostato nella configurazione (es. 10 mm) è un margine aggiunto al
                         t = float(r_widgets["thickness"].get().replace(",", "."))
                         cc = r_widgets["color_code"].get().strip()
                         cd = r_widgets["color_desc"].get().strip()
+                        is_inv = "Invertito" in r_widgets["orient_widget"].get()
                         q = int(r_widgets["quantity"].get())
                         
                         if not desc or w <= 0 or h <= 0 or t <= 0 or not cc or q <= 0:
@@ -4482,6 +4625,8 @@ Lo "Sfrido" impostato nella configurazione (es. 10 mm) è un margine aggiunto al
                             "thickness": t,
                             "color_code": cc,
                             "color_desc": cd,
+                            "orientamento_invertito": is_inv,
+                            "orientamento": "Orizzontale" if is_inv else "Verticale",
                             "quantity": q
                         })
                 except ValueError:
@@ -4531,6 +4676,8 @@ Lo "Sfrido" impostato nella configurazione (es. 10 mm) è un margine aggiunto al
     def get_color_grain_map(self):
         color_grain_map = {}
         self.data_manager.db = self.data_manager.load_db()
+        for s in self.data_manager.get_semilavorati():
+            color_grain_map[s["color_code"]] = s.get("has_grain", False)
         for b in self.data_manager.get_barre():
             color_grain_map[b["color_code"]] = b.get("has_grain", False)
         return color_grain_map
@@ -4695,19 +4842,31 @@ Lo "Sfrido" impostato nella configurazione (es. 10 mm) è un margine aggiunto al
         return direction_var.get()
 
     def show_db_settings_dialog(self):
-        pwd = simpledialog.askstring("Accesso Riservato", "Inserisci la password per accedere alle impostazioni:", show="*")
+        pwd = simpledialog.askstring(
+            "Accesso Impostazioni", 
+            "Inserisci la password di amministrazione per sbloccare tutte le opzioni\n(lascia vuoto per accedere ai soli Parametri Standard):", 
+            show="*"
+        )
         if pwd is None:
             return
-        if pwd == "Rdf202764!":
-            DbSettingsDialog(self.root, self.data_manager, self)
+            
+        pwd_clean = pwd.strip()
+        if pwd_clean == "":
+            is_admin = False
+        elif pwd_clean == "Rdf202764!":
+            is_admin = True
         else:
-            messagebox.showerror("Accesso Negato", "Password errata! Accesso non consentito.")
+            messagebox.showerror("Accesso Negato", "La password inserita non è corretta!")
+            return
+            
+        DbSettingsDialog(self.root, self.data_manager, self, is_admin=is_admin)
 
 class DbSettingsDialog(tk.Toplevel):
-    def __init__(self, parent, data_manager, app):
+    def __init__(self, parent, data_manager, app, is_admin=True):
         super().__init__(parent)
         self.app = app
-        self.title("Configurazione Database")
+        self.is_admin = is_admin
+        self.title("Configurazione Impostazioni" if is_admin else "Configurazione Parametri Standard")
         self.geometry("680x600")
         self.resizable(False, False)
         self.grab_set()
@@ -4730,7 +4889,8 @@ class DbSettingsDialog(tk.Toplevel):
         main_frame.pack(fill=tk.BOTH, expand=True)
         
         # Titolo
-        lbl_title = ttk.Label(main_frame, text="IMPOSTAZIONI DI SISTEMA", font=("Segoe UI", 12, "bold"), foreground=self.accent_color)
+        title_text = "IMPOSTAZIONI DI SISTEMA (Amministratore)" if self.is_admin else "IMPOSTAZIONI - PARAMETRI STANDARD (Modalità Operatore)"
+        lbl_title = ttk.Label(main_frame, text=title_text, font=("Segoe UI", 12, "bold"), foreground=self.accent_color)
         lbl_title.pack(anchor=tk.W, pady=(0, 10))
         
         # Notebook (Linguette)
@@ -4752,6 +4912,12 @@ class DbSettingsDialog(tk.Toplevel):
         # 4. Tab Generazione Rilascio
         tab_build = ttk.Frame(self.notebook, padding=10)
         self.notebook.add(tab_build, text="Generazione Rilascio")
+        
+        if not self.is_admin:
+            self.notebook.tab(tab_db, state="disabled")
+            self.notebook.tab(tab_client, state="disabled")
+            self.notebook.tab(tab_build, state="disabled")
+            self.notebook.select(tab_params)
         
         # Radio buttons per Tipo Db (nel tab_db)
         f_type = ttk.LabelFrame(tab_db, text="Tipo Database", padding=8)
@@ -4831,12 +4997,14 @@ class DbSettingsDialog(tk.Toplevel):
         self.ent_def_sfrido.grid(row=3, column=1, sticky=tk.W, pady=6, padx=10)
         
         ttk.Label(tab_params, text="Tipo Macchinario di default:").grid(row=4, column=0, sticky=tk.W, pady=6)
-        self.cmb_def_macchina = ttk.Combobox(tab_params, values=["Sezionatrice", "Pantografo"], state="readonly", width=13)
-        def_macch = self.config.get("default_macchina", "sezionatrice")
-        if def_macch.lower() == "pantografo":
-            self.cmb_def_macchina.set("Pantografo")
+        self.cmb_def_macchina = ttk.Combobox(tab_params, values=["Sezionatrice Manuale", "Sezionatrice Automatica CNC", "Pantografo CNC"], state="readonly", width=25)
+        def_macch = self.config.get("default_macchina", "sezionatrice_automatica")
+        if "pantografo" in def_macch.lower():
+            self.cmb_def_macchina.set("Pantografo CNC")
+        elif "manuale" in def_macch.lower():
+            self.cmb_def_macchina.set("Sezionatrice Manuale")
         else:
-            self.cmb_def_macchina.set("Sezionatrice")
+            self.cmb_def_macchina.set("Sezionatrice Automatica CNC")
         self.cmb_def_macchina.grid(row=4, column=1, sticky=tk.W, pady=6, padx=10)
         
         ttk.Label(tab_params, text="Min. larghezza recupero di default (mm):").grid(row=5, column=0, sticky=tk.W, pady=6)
@@ -5009,8 +5177,6 @@ class DbSettingsDialog(tk.Toplevel):
             self.btn_test.configure(state=tk.NORMAL)
 
     def save_settings(self):
-        db_type = self.db_type_var.get()
-        
         # Convalida e leggi i parametri standard
         try:
             k = float(self.ent_def_kerf.get().replace(",", "."))
@@ -5025,49 +5191,60 @@ class DbSettingsDialog(tk.Toplevel):
             messagebox.showerror("Errore Dati", "Verifica che i parametri standard siano numeri validi non negativi.")
             return
 
-        new_config = {
-            "db_type": db_type,
-            "local_path": r"C:\CutMob\DbDati\database.json",
-            "sql_type": self.cmb_sql_type.get() if db_type == "sql" else self.config.get("sql_type", "MySQL"),
-            "sql_host": self.ent_host.get() if db_type == "sql" else self.config.get("sql_host", "127.0.0.1"),
-            "sql_port": int(self.ent_port.get() if self.ent_port.get().isdigit() else 3306) if db_type == "sql" else self.config.get("sql_port", 3306),
-            "sql_user": self.ent_user.get() if db_type == "sql" else self.config.get("sql_user", ""),
-            "sql_password": self.ent_pass.get() if db_type == "sql" else self.config.get("sql_password", ""),
-            "sql_database": self.ent_db.get() if db_type == "sql" else self.config.get("sql_database", "cutmob"),
+        if not self.is_admin:
+            new_config = dict(self.config)
+            new_config["default_kerf"] = k
+            new_config["default_rifilo_h"] = rh
+            new_config["default_rifilo_v"] = rv
+            new_config["default_sfrido"] = sf
+            new_config["default_macchina"] = self.cmb_def_macchina.get().lower()
+            new_config["default_min_w"] = mw
+            new_config["default_min_h"] = mh
+        else:
+            db_type = self.db_type_var.get()
+            new_config = {
+                "db_type": db_type,
+                "local_path": r"C:\CutMob\DbDati\database.json",
+                "sql_type": self.cmb_sql_type.get() if db_type == "sql" else self.config.get("sql_type", "MySQL"),
+                "sql_host": self.ent_host.get() if db_type == "sql" else self.config.get("sql_host", "127.0.0.1"),
+                "sql_port": int(self.ent_port.get() if self.ent_port.get().isdigit() else 3306) if db_type == "sql" else self.config.get("sql_port", 3306),
+                "sql_user": self.ent_user.get() if db_type == "sql" else self.config.get("sql_user", ""),
+                "sql_password": self.ent_pass.get() if db_type == "sql" else self.config.get("sql_password", ""),
+                "sql_database": self.ent_db.get() if db_type == "sql" else self.config.get("sql_database", "cutmob"),
+                
+                # Parametri standard
+                "default_kerf": k,
+                "default_rifilo_h": rh,
+                "default_rifilo_v": rv,
+                "default_sfrido": sf,
+                "default_macchina": self.cmb_def_macchina.get().lower(),
+                "show_cut_progression": self.config.get("show_cut_progression", True),
+                "default_min_w": mw,
+                "default_min_h": mh,
+                
+                # Dati cliente e funzioni importazione / uso magazzino
+                "client_name": self.ent_client_name.get().strip(),
+                "client_cf_piva": self.ent_client_cf_piva.get().strip(),
+                "client_email": self.ent_client_email.get().strip(),
+                "import_enabled": self.var_import_enabled.get(),
+                "license_enabled": self.var_license_enabled.get(),
+                
+                "default_use_residuo": self.var_def_residuo.get(),
+                "default_use_barra": self.var_def_barra.get(),
+                "default_use_pannello": self.var_def_pannello.get()
+            }
             
-            # Parametri standard
-            "default_kerf": k,
-            "default_rifilo_h": rh,
-            "default_rifilo_v": rv,
-            "default_sfrido": sf,
-            "default_macchina": self.cmb_def_macchina.get().lower(),
-            "show_cut_progression": self.config.get("show_cut_progression", True),
-            "default_min_w": mw,
-            "default_min_h": mh,
-            
-            # Dati cliente e funzioni importazione / uso magazzino
-            "client_name": self.ent_client_name.get().strip(),
-            "client_cf_piva": self.ent_client_cf_piva.get().strip(),
-            "client_email": self.ent_client_email.get().strip(),
-            "import_enabled": self.var_import_enabled.get(),
-            "license_enabled": self.var_license_enabled.get(),
-            
-            "default_use_residuo": self.var_def_residuo.get(),
-            "default_use_barra": self.var_def_barra.get(),
-            "default_use_pannello": self.var_def_pannello.get()
-        }
-        
-        if db_type == "sql":
-            try:
-                from data_manager import DataManager
-                test_dm = DataManager()
-                test_dm.config = new_config
-                conn = test_dm._get_sql_connection()
-                conn.close()
-            except Exception as e:
-                confirm = messagebox.askyesno("Errore Connessione", f"Il test di connessione è fallito con il seguente errore:\n{e}\n\nVuoi salvare comunque la configurazione?")
-                if not confirm:
-                    return
+            if db_type == "sql":
+                try:
+                    from data_manager import DataManager
+                    test_dm = DataManager()
+                    test_dm.config = new_config
+                    conn = test_dm._get_sql_connection()
+                    conn.close()
+                except Exception as e:
+                    confirm = messagebox.askyesno("Errore Connessione", f"Il test di connessione è fallito con il seguente errore:\n{e}\n\nVuoi salvare comunque la configurazione?")
+                    if not confirm:
+                        return
 
         success = self.data_manager.save_config(new_config)
         if success:
@@ -5091,10 +5268,9 @@ class DbSettingsDialog(tk.Toplevel):
             self.app.ent_min_h.delete(0, tk.END)
             self.app.ent_min_h.insert(0, str(int(mh) if mh.is_integer() else mh))
             
-            if self.cmb_def_macchina.get() == "Pantografo":
-                self.app.cmb_macchina.set("Pantografo")
-            else:
-                self.app.cmb_macchina.set("Sezionatrice")
+            macch_choice = self.cmb_def_macchina.get()
+            self.config["default_macchina"] = macch_choice
+            self.app.cmb_macchina.set(macch_choice)
                 
             self.app.update_client_display()
             self.app.update_import_features()
@@ -5139,24 +5315,93 @@ class DbSettingsDialog(tk.Toplevel):
                 messagebox.showerror("Errore", f"Script di compilazione non trovato: {script_path}")
                 return
                 
-            messagebox.showinfo("Compilazione avviata", f"Compilazione della versione {target_version} avviata in background.\nRiceverai una notifica al completamento.")
+            # Finestra Console di Compilazione in Tempo Reale
+            build_win = tk.Toplevel(self)
+            build_win.title(f"🛠️ Compilazione CutMob v{target_version} - Log di Esecuzione")
+            build_win.geometry("780x520")
+            build_win.minsize(600, 400)
             
-            def run_build():
-                res = subprocess.run(["python", script_path], capture_output=True, text=True)
-                if res.returncode == 0:
-                    messagebox.showinfo("Compilazione Completata", f"Compilazione Windows (v{target_version}) completata con successo!\nIl file Setup_CutMob_{target_version}.zip si trova nella cartella dist/\n\nLa cartella dist/ verrà aperta automaticamente.")
-                    try:
-                        os.startfile("dist")
-                    except Exception:
+            lbl_title = tk.Label(
+                build_win, 
+                text=f"🔄 COMPILAZIONE IN CORSO: CutMob v{target_version}", 
+                font=("Segoe UI", 11, "bold"), 
+                fg="#1565c0", 
+                bg="#f5f5f5", 
+                pady=8
+            )
+            lbl_title.pack(fill=tk.X)
+            
+            prog_bar = ttk.Progressbar(build_win, mode="indeterminate")
+            prog_bar.pack(fill=tk.X, padx=10, pady=5)
+            prog_bar.start(10)
+            
+            txt_console = tk.Text(build_win, bg="#1e1e1e", fg="#00ff66", font=("Consolas", 9), wrap=tk.WORD)
+            txt_console.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
+            
+            scrollbar = ttk.Scrollbar(txt_console, command=txt_console.yview)
+            scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+            txt_console.config(yscrollcommand=scrollbar.set)
+            
+            btn_frame = ttk.Frame(build_win)
+            btn_frame.pack(fill=tk.X, padx=10, pady=8)
+            
+            project_dir = os.path.dirname(os.path.abspath(__file__))
+            dist_dir = os.path.join(project_dir, "dist")
+            
+            btn_open_dist = ttk.Button(
+                btn_frame, 
+                text="📁 Apri Cartella Dist", 
+                state=tk.DISABLED,
+                command=lambda: os.startfile(dist_dir) if os.path.exists(dist_dir) else None
+            )
+            btn_open_dist.pack(side=tk.LEFT)
+            
+            btn_close = ttk.Button(btn_frame, text="✖️ Chiudi", command=build_win.destroy)
+            btn_close.pack(side=tk.RIGHT)
+            
+            def append_log(text):
+                txt_console.insert(tk.END, text)
+                txt_console.see(tk.END)
+                
+            def run_build_live():
+                import subprocess, sys
+                cmd = [sys.executable, "-u", script_path]
+                
+                creationflags = subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
+                proc = subprocess.Popen(
+                    cmd, 
+                    cwd=project_dir, 
+                    stdout=subprocess.PIPE, 
+                    stderr=subprocess.STDOUT, 
+                    text=True, 
+                    bufsize=1,
+                    creationflags=creationflags
+                )
+                
+                for line in proc.stdout:
+                    build_win.after(0, append_log, line)
+                    
+                proc.stdout.close()
+                return_code = proc.wait()
+                
+                def on_finished():
+                    prog_bar.stop()
+                    prog_bar.pack_forget()
+                    if return_code == 0:
+                        lbl_title.config(text=f"✅ COMPILAZIONE COMPLETATA CON SUCCESSO! (v{target_version})", fg="#2e7d32")
+                        btn_open_dist.config(state=tk.NORMAL)
+                        append_log(f"\n[OK] Setup salvato in: dist/Setup_CutMob_{target_version}.zip\n")
                         try:
-                            import subprocess
-                            subprocess.Popen(["explorer", "dist"])
+                            os.startfile(dist_dir)
                         except Exception:
                             pass
-                else:
-                    messagebox.showerror("Errore Compilazione", f"Errore durante la compilazione:\n{res.stderr or res.stdout}")
-                    
-            threading.Thread(target=run_build, daemon=True).start()
+                    else:
+                        lbl_title.config(text=f"❌ ERRORE DURANTE LA COMPILAZIONE! (v{target_version})", fg="#c62828")
+                        append_log(f"\n[ERRORE] Il processo è terminato con codice {return_code}.\n")
+                        
+                build_win.after(0, on_finished)
+                
+            threading.Thread(target=run_build_live, daemon=True).start()
             
         except Exception as e:
             messagebox.showerror("Errore", f"Impossibile avviare la compilazione: {e}")

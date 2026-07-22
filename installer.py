@@ -12,6 +12,21 @@ LICENSE_PATH = os.path.join(DB_DIR, "licenza.key")
 CONFIG_PATH = os.path.join(DB_DIR, "config.json")
 DATABASE_PATH = os.path.join(DB_DIR, "database.json")
 
+def create_desktop_shortcut(target_exe, shortcut_path, working_dir, icon_path):
+    try:
+        ps_script = f"""
+        $WshShell = New-Object -ComObject WScript.Shell
+        $Shortcut = $WshShell.CreateShortcut('{shortcut_path}')
+        $Shortcut.TargetPath = '{target_exe}'
+        $Shortcut.WorkingDirectory = '{working_dir}'
+        $Shortcut.IconLocation = '{icon_path}'
+        $Shortcut.Save()
+        """
+        subprocess.run(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ps_script], 
+                       creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0, check=True)
+    except Exception as e:
+        print(f"Impossibile creare il collegamento Desktop: {e}")
+
 def merge_configs(existing_path, default_config):
     import json
     import base64
@@ -249,6 +264,24 @@ class InstallerApp:
             # Esegui il merge/creazione della configurazione
             merge_configs(CONFIG_PATH, default_config)
                         
+            # Creazione del collegamento sul Desktop se non esiste già
+            try:
+                desktop_folder = os.path.join(os.environ.get("USERPROFILE", ""), "Desktop")
+                if not os.path.exists(desktop_folder):
+                    # Fallback per percorsi in lingua diversa o OneDrive
+                    desktop_folder = os.path.expanduser("~/Desktop")
+                
+                shortcut_path = os.path.join(desktop_folder, "CutMob.lnk")
+                exe_path = os.path.join(INSTALL_DIR, "CutMob.exe")
+                icon_path = os.path.join(INSTALL_DIR, "app_icon.ico")
+                
+                if os.path.exists(exe_path):
+                    self.lbl_progress_status.config(text="Creazione collegamento Desktop...")
+                    self.root.update()
+                    create_desktop_shortcut(exe_path, shortcut_path, INSTALL_DIR, icon_path if os.path.exists(icon_path) else exe_path)
+            except Exception as shortcut_err:
+                print(f"Errore nella creazione del collegamento: {shortcut_err}")
+
             self.progress_var.set(100)
             self.lbl_progress_status.config(text="Completato!")
             self.root.update()
