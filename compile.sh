@@ -15,22 +15,29 @@ then
     fi
 fi
 
-# 2. Verifica/Genera logo.icns da logo.png per macOS
-if [ ! -f "logo.icns" ] && [ -f "logo.png" ]; then
-    echo "Generazione di logo.icns da logo.png..."
+# 2. Genera/Aggiorna logo.icns da app_icon.ico (o logo.png) per macOS
+if [ -f "app_icon.ico" ]; then
+    echo "Generazione di logo.icns da app_icon.ico..."
+    python3 -c "from PIL import Image; img = Image.open('app_icon.ico'); img.seek(0); img.save('app_icon_base.png')" &>/dev/null
+    SRC_IMG="app_icon_base.png"
+elif [ -f "logo.png" ]; then
+    SRC_IMG="logo.png"
+fi
+
+if [ -n "$SRC_IMG" ]; then
     mkdir -p logo.iconset
-    sips -z 16 16 logo.png --out logo.iconset/icon_16x16.png &>/dev/null
-    sips -z 32 32 logo.png --out logo.iconset/icon_16x16@2x.png &>/dev/null
-    sips -z 32 32 logo.png --out logo.iconset/icon_32x32.png &>/dev/null
-    sips -z 64 64 logo.png --out logo.iconset/icon_32x32@2x.png &>/dev/null
-    sips -z 128 128 logo.png --out logo.iconset/icon_128x128.png &>/dev/null
-    sips -z 256 256 logo.png --out logo.iconset/icon_128x128@2x.png &>/dev/null
-    sips -z 256 256 logo.png --out logo.iconset/icon_256x256.png &>/dev/null
-    sips -z 512 512 logo.png --out logo.iconset/icon_256x256@2x.png &>/dev/null
-    sips -z 512 512 logo.png --out logo.iconset/icon_512x512.png &>/dev/null
-    sips -z 1024 1024 logo.png --out logo.iconset/icon_512x512@2x.png &>/dev/null
+    sips -z 16 16 "$SRC_IMG" --out logo.iconset/icon_16x16.png &>/dev/null
+    sips -z 32 32 "$SRC_IMG" --out logo.iconset/icon_16x16@2x.png &>/dev/null
+    sips -z 32 32 "$SRC_IMG" --out logo.iconset/icon_32x32.png &>/dev/null
+    sips -z 64 64 "$SRC_IMG" --out logo.iconset/icon_32x32@2x.png &>/dev/null
+    sips -z 128 128 "$SRC_IMG" --out logo.iconset/icon_128x128.png &>/dev/null
+    sips -z 256 256 "$SRC_IMG" --out logo.iconset/icon_128x128@2x.png &>/dev/null
+    sips -z 256 256 "$SRC_IMG" --out logo.iconset/icon_256x256.png &>/dev/null
+    sips -z 512 512 "$SRC_IMG" --out logo.iconset/icon_256x256@2x.png &>/dev/null
+    sips -z 512 512 "$SRC_IMG" --out logo.iconset/icon_512x512.png &>/dev/null
+    sips -z 1024 1024 "$SRC_IMG" --out logo.iconset/icon_512x512@2x.png &>/dev/null
     iconutil -c icns logo.iconset &>/dev/null
-    rm -rf logo.iconset
+    rm -rf logo.iconset app_icon_base.png
 fi
 
 # 3. Avvia la compilazione
