@@ -3,7 +3,7 @@ import sys
 import copy
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, simpledialog
-from data_manager import DataManager
+from data_manager import DataManager, get_base_dir, get_base_db_dir
 from optimizer import CuttingOptimizer
 from renderer import LayoutRenderer
 
@@ -1090,7 +1090,7 @@ class CutMobApp:
             
             try:
                 download_url = self.latest_version_info.get("url")
-                temp_dir = r"C:\CutMob\Temp"
+                temp_dir = os.path.join(get_base_dir(), "Temp")
                 os.makedirs(temp_dir, exist_ok=True)
                 
                 if download_url.endswith(".dmg"):
@@ -3448,7 +3448,7 @@ Lo "Sfrido" impostato nella configurazione (es. 10 mm) è un margine aggiunto al
         if not self.optimization_results:
             return
             
-        initial_dir = r"C:\CutMob\Report\HTML"
+        initial_dir = os.path.join(get_base_dir(), "Report", "HTML")
         try:
             os.makedirs(initial_dir, exist_ok=True)
         except Exception:
@@ -3477,7 +3477,7 @@ Lo "Sfrido" impostato nella configurazione (es. 10 mm) è un margine aggiunto al
             
         import time
         # Crea cartella se non esiste
-        folder = r"C:\CutMob\Report\PDF"
+        folder = os.path.join(get_base_dir(), "Report", "PDF")
         try:
             os.makedirs(folder, exist_ok=True)
         except Exception as e:
@@ -3534,9 +3534,11 @@ Lo "Sfrido" impostato nella configurazione (es. 10 mm) è un margine aggiunto al
             "title": f"Importa file CSV per {'Barre' if stock_type == 'barre' else 'Semilavorati'}"
         }
         if stock_type == "barre":
-            dialog_kwargs["initialdir"] = r"C:\Report\Pannelli"
+            dir_path = os.path.join(get_base_dir(), "Report", "Pannelli")
+            dialog_kwargs["initialdir"] = dir_path if os.path.exists(dir_path) else r"C:\Report\Pannelli"
         elif stock_type == "semilavorati":
-            dialog_kwargs["initialdir"] = r"C:\Report\Barre"
+            dir_path = os.path.join(get_base_dir(), "Report", "Barre")
+            dialog_kwargs["initialdir"] = dir_path if os.path.exists(dir_path) else r"C:\Report\Barre"
             
         filepath = filedialog.askopenfilename(**dialog_kwargs)
         if not filepath:
@@ -3827,10 +3829,11 @@ Lo "Sfrido" impostato nella configurazione (es. 10 mm) è un margine aggiunto al
         if getattr(self, "current_commessa_status", "Aperta") == "Chiusa":
             messagebox.showerror("Errore", "La commessa corrente è CHIUSA e non può essere modificata.")
             return
+        dir_path = os.path.join(get_base_dir(), "Report", "Elem_Cutmob")
         filepath = filedialog.askopenfilename(
             filetypes=[("File CSV", "*.csv"), ("Tutti i file", "*.*")],
             title="Importa file CSV ordini",
-            initialdir=r"C:\Report\Elem_Cutmob"
+            initialdir=dir_path if os.path.exists(dir_path) else r"C:\Report\Elem_Cutmob"
         )
         if not filepath:
             return
@@ -5204,7 +5207,7 @@ class DbSettingsDialog(tk.Toplevel):
             db_type = self.db_type_var.get()
             new_config = {
                 "db_type": db_type,
-                "local_path": r"C:\CutMob\DbDati\database.json",
+                "local_path": os.path.join(get_base_db_dir(), "database.json"),
                 "sql_type": self.cmb_sql_type.get() if db_type == "sql" else self.config.get("sql_type", "MySQL"),
                 "sql_host": self.ent_host.get() if db_type == "sql" else self.config.get("sql_host", "127.0.0.1"),
                 "sql_port": int(self.ent_port.get() if self.ent_port.get().isdigit() else 3306) if db_type == "sql" else self.config.get("sql_port", 3306),

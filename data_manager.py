@@ -3,6 +3,15 @@ import json
 import csv
 import copy
 
+def get_base_dir():
+    if os.name == 'nt':
+        return r"C:\CutMob"
+    else:
+        return os.path.expanduser("~/CutMob")
+
+def get_base_db_dir():
+    return os.path.join(get_base_dir(), "DbDati")
+
 class DataManager:
     def __init__(self, db_filename="database.json"):
         self.config = self.load_config()
@@ -31,12 +40,12 @@ class DataManager:
             raise ValueError("Configurazione corrotta o non decifrabile.")
 
     def load_config(self):
-        config_dir = r"C:\CutMob\DbDati"
+        config_dir = get_base_db_dir()
         os.makedirs(config_dir, exist_ok=True)
         config_path = os.path.join(config_dir, "config.json")
         default_config = {
             "db_type": "local",
-            "local_path": r"C:\CutMob\DbDati\database.json",
+            "local_path": os.path.join(config_dir, "database.json"),
             "sql_type": "MySQL",
             "sql_host": "127.0.0.1",
             "sql_port": 3306,
@@ -92,7 +101,7 @@ class DataManager:
 
     def save_config(self, config):
         self.config = config
-        config_dir = r"C:\CutMob\DbDati"
+        config_dir = get_base_db_dir()
         os.makedirs(config_dir, exist_ok=True)
         config_path = os.path.join(config_dir, "config.json")
         try:
@@ -105,7 +114,7 @@ class DataManager:
             return False
 
     def load_license_key(self):
-        lic_path = r"C:\CutMob\DbDati\licenza.key"
+        lic_path = os.path.join(get_base_db_dir(), "licenza.key")
         if not os.path.exists(lic_path):
             return ""
         try:
@@ -115,7 +124,7 @@ class DataManager:
             return ""
 
     def save_license_key(self, key_str):
-        lic_dir = r"C:\CutMob\DbDati"
+        lic_dir = get_base_db_dir()
         os.makedirs(lic_dir, exist_ok=True)
         lic_path = os.path.join(lic_dir, "licenza.key")
         try:
@@ -132,9 +141,9 @@ class DataManager:
                 if os.path.isabs(db_filename):
                     self.db_path = db_filename
                 else:
-                    self.db_path = os.path.join(r"C:\CutMob\DbDati", db_filename)
+                    self.db_path = os.path.join(get_base_db_dir(), db_filename)
             else:
-                self.db_path = r"C:\CutMob\DbDati\database.json"
+                self.db_path = os.path.join(get_base_db_dir(), "database.json")
             os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
         else:
             self.db_path = None
@@ -1639,8 +1648,9 @@ class DataManager:
             return False
             
         try:
-            # 2. Individua l'eseguibile di Google Chrome su Windows
+            # 2. Individua l'eseguibile di Google Chrome su Windows e macOS
             chrome_paths = [
+                "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
                 r"C:\Program Files\Google\Chrome\Application\chrome.exe",
                 r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
                 os.path.join(os.environ.get("LOCALAPPDATA", ""), r"Google\Chrome\Application\chrome.exe")
