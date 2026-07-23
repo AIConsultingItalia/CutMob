@@ -1,4 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
+import sys
 
 block_cipher = None
 
@@ -47,3 +48,11 @@ coll = COLLECT(
     upx_exclude=[],
     name='CutMob',
 )
+
+if sys.platform == 'darwin':
+    app = BUNDLE(
+        coll,
+        name='CutMob.app',
+        icon='logo.icns',
+        bundle_identifier='com.cutmob.app'
+    )

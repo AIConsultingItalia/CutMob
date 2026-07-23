@@ -15,7 +15,25 @@ then
     fi
 fi
 
-# 2. Avvia la compilazione
+# 2. Verifica/Genera logo.icns da logo.png per macOS
+if [ ! -f "logo.icns" ] && [ -f "logo.png" ]; then
+    echo "Generazione di logo.icns da logo.png..."
+    mkdir -p logo.iconset
+    sips -z 16 16 logo.png --out logo.iconset/icon_16x16.png &>/dev/null
+    sips -z 32 32 logo.png --out logo.iconset/icon_16x16@2x.png &>/dev/null
+    sips -z 32 32 logo.png --out logo.iconset/icon_32x32.png &>/dev/null
+    sips -z 64 64 logo.png --out logo.iconset/icon_32x32@2x.png &>/dev/null
+    sips -z 128 128 logo.png --out logo.iconset/icon_128x128.png &>/dev/null
+    sips -z 256 256 logo.png --out logo.iconset/icon_128x128@2x.png &>/dev/null
+    sips -z 256 256 logo.png --out logo.iconset/icon_256x256.png &>/dev/null
+    sips -z 512 512 logo.png --out logo.iconset/icon_256x256@2x.png &>/dev/null
+    sips -z 512 512 logo.png --out logo.iconset/icon_512x512.png &>/dev/null
+    sips -z 1024 1024 logo.png --out logo.iconset/icon_512x512@2x.png &>/dev/null
+    iconutil -c icns logo.iconset &>/dev/null
+    rm -rf logo.iconset
+fi
+
+# 3. Avvia la compilazione
 echo "Pulizia directory build/dist..."
 rm -rf dist build
 echo "Compilazione con PyInstaller..."
@@ -25,7 +43,7 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-# 3. Crea la struttura di cartelle richiesta nella cartella Home (~/CutMob)
+# 4. Crea la struttura di cartelle richiesta nella cartella Home (~/CutMob)
 echo "Creazione struttura cartelle in ~/CutMob..."
 BASE_DIR="$HOME/CutMob"
 mkdir -p "$BASE_DIR"
@@ -37,17 +55,20 @@ mkdir -p "$BASE_DIR/Report/Pannelli"
 mkdir -p "$BASE_DIR/Report/Barre"
 mkdir -p "$BASE_DIR/Report/Elem_Cutmob"
 
-# 4. Copia l'applicazione compilata nella cartella di destinazione
-echo "Copia dell'applicazione compilata in ~/CutMob..."
+# 5. Copia l'applicazione compilata nella cartella di destinazione e sul Desktop
+echo "Copia dell'applicazione compilata in ~/CutMob e sul Desktop..."
+DESKTOP_DIR="$HOME/Desktop"
 if [ -d "dist/CutMob.app" ]; then
     rm -rf "$BASE_DIR/CutMob.app"
     cp -R dist/CutMob.app "$BASE_DIR/"
-    echo "CutMob.app copiata con successo."
+    echo "CutMob.app copiata con successo in ~/CutMob."
+    rm -rf "$DESKTOP_DIR/CutMob.app"
+    cp -R dist/CutMob.app "$DESKTOP_DIR/"
+    echo "Icona di avvio CutMob.app creata sul Desktop!"
 elif [ -d "dist/CutMob" ]; then
-    # Se compilato come cartella singola anziché bundle .app
     rm -rf "$BASE_DIR/CutMob"
     cp -R dist/CutMob "$BASE_DIR/"
-    echo "Applicazione cartella copiata con successo."
+    echo "Applicazione cartella copiata con successo in ~/CutMob."
 fi
 
 # 5. Scelta gestione Database
