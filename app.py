@@ -74,10 +74,12 @@ class CutMobApp:
         client_name = self.data_manager.config.get("client_name", "")
         if client_name:
             self.root.title(f"CutMob Panel per {client_name}")
-            self.lbl_client.configure(text=f"per {client_name}")
+            if hasattr(self, 'lbl_client'):
+                self.lbl_client.configure(text=f"per {client_name}")
         else:
             self.root.title("CutMob Panel")
-            self.lbl_client.configure(text="")
+            if hasattr(self, 'lbl_client'):
+                self.lbl_client.configure(text="")
 
     def update_import_features(self):
         import_enabled = self.data_manager.config.get("import_enabled", True)
