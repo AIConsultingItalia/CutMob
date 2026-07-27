@@ -10,7 +10,7 @@ from renderer import LayoutRenderer
 class CutMobApp:
     def __init__(self, root):
         self.root = root
-        self.APP_VERSION = "2.2.6"
+        self.APP_VERSION = "2.2.8"
         self.root.title("CutMob - Ottimizzatore di Taglio Pannelli")
         self.root.geometry("1100x700")
         self.root.minsize(900, 600)
@@ -1109,10 +1109,24 @@ class CutMobApp:
                     shutil.copyfileobj(response, out_file)
                 
                 progress_dialog.destroy()
+                target_dir = os.path.dirname(os.path.abspath(sys.executable)) if getattr(sys, 'frozen', False) else r"C:\CutMob"
                 
+                def launch_detached_process(cmd):
+                    if os.name == 'nt':
+                        DETACHED_PROCESS = 0x00000008
+                        CREATE_NEW_PROCESS_GROUP = 0x00000200
+                        flags = DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
+                        if isinstance(cmd, list):
+                            subprocess.Popen(cmd, creationflags=flags, close_fds=True)
+                        else:
+                            subprocess.Popen(cmd, shell=True, creationflags=flags, close_fds=True)
+                    else:
+                        if isinstance(cmd, list):
+                            subprocess.Popen(cmd, close_fds=True)
+                        else:
+                            subprocess.Popen(cmd, shell=True, close_fds=True)
+                            
                 if ext == ".zip":
-                    messagebox.showinfo("Aggiornamento", "Download completato con successo!\nL'applicazione verrà chiusa per completare l'aggiornamento.")
-                    
                     extract_path = os.path.join(temp_dir, "extracted")
                     if os.path.exists(extract_path):
                         shutil.rmtree(extract_path, ignore_errors=True)
@@ -1131,13 +1145,15 @@ class CutMobApp:
                                 break
 
                     if os.path.exists(setup_exe):
+                        messagebox.showinfo("Aggiornamento", "Download completato con successo!\nL'applicazione verrà chiusa per completare l'aggiornamento.")
                         def finalize_exe_from_zip():
-                            subprocess.Popen([setup_exe], shell=True)
+                            launch_detached_process([setup_exe, "--auto", "--target-dir", target_dir])
                             self.root.destroy()
                             import os
                             os._exit(0)
                         self.root.after(0, finalize_exe_from_zip)
                     else:
+                        messagebox.showinfo("Aggiornamento", "Download completato con successo!\nL'applicazione verrà chiusa per completare l'aggiornamento.")
                         bat_path = os.path.join(temp_dir, "update.bat")
                         src_folder = os.path.join(extract_path, "CutMob")
                         if not os.path.exists(src_folder):
@@ -1149,21 +1165,21 @@ class CutMobApp:
                             f.write(f'echo Attendere l\'installazione dell\'aggiornamento...\n')
                             f.write(f'taskkill /f /im CutMob.exe >nul 2>&1\n')
                             f.write(f'timeout /t 2 /nobreak > nul\n')
-                            f.write(f'xcopy /y /e /h /r "{src_folder}\\*.*" "C:\\CutMob\\"\n')
-                            f.write(f'start C:\\CutMob\\CutMob.exe\n')
+                            f.write(f'xcopy /y /e /h /r "{src_folder}\\*.*" "{target_dir}\\"\n')
+                            f.write(f'start "" "{target_dir}\\CutMob.exe"\n')
                             f.write(f'exit\n')
                         
                         def finalize_zip():
-                            subprocess.Popen([bat_path], shell=True)
+                            launch_detached_process(bat_path)
                             self.root.destroy()
                             import os
                             os._exit(0)
                         self.root.after(0, finalize_zip)
                     
                 elif ext == ".exe":
-                    messagebox.showinfo("Aggiornamento", "Download completato con successo!\nL'applicazione verrà chiusa per avviare l'installazione.")
+                    messagebox.showinfo("Aggiornamento", "Download completato con successo!\nL'applicazione verrà chiusa per completare l'aggiornamento.")
                     def finalize_exe():
-                        subprocess.Popen([dest_file], shell=True)
+                        launch_detached_process([dest_file, "--auto", "--target-dir", target_dir])
                         self.root.destroy()
                         import os
                         os._exit(0)
@@ -4849,17 +4865,20 @@ Lo "Sfrido" impostato nella configurazione (es. 10 mm) è un margine aggiunto al
     def show_db_settings_dialog(self):
         pwd = simpledialog.askstring(
             "Accesso Impostazioni", 
-            "Inserisci la password di amministrazione per sbloccare tutte le opzioni\n(lascia vuoto per accedere ai soli Parametri Standard):", 
+            "Inserisci la password di amministrazione per sbloccare tutte le opzioni\n(o la password per accedere ai soli Parametri Standard):", 
             show="*"
         )
         if pwd is None:
             return
             
         pwd_clean = pwd.strip()
-        if pwd_clean == "":
-            is_admin = False
-        elif pwd_clean == "Rdf202764!":
+        config = self.data_manager.load_config()
+        params_pwd = config.get("params_password", "password").strip()
+        
+        if pwd_clean == "Rdf202764!":
             is_admin = True
+        elif pwd_clean != "" and pwd_clean == params_pwd:
+            is_admin = False
         else:
             messagebox.showerror("Accesso Negato", "La password inserita non è corretta!")
             return
@@ -5022,6 +5041,28 @@ class DbSettingsDialog(tk.Toplevel):
         self.ent_def_min_h.insert(0, str(self.config.get("default_min_h", "300")))
         self.ent_def_min_h.grid(row=6, column=1, sticky=tk.W, pady=6, padx=10)
         
+        # default stock selections (Uso Magazzino di Default)
+        ttk.Label(tab_params, text="Uso Magazzino di Default:").grid(row=7, column=0, sticky=tk.W, pady=6)
+        f_stock_def = ttk.Frame(tab_params)
+        f_stock_def.grid(row=7, column=1, sticky=tk.W, pady=6, padx=10)
+        
+        self.var_def_residuo = tk.BooleanVar(value=self.config.get("default_use_residuo", True))
+        self.var_def_barra = tk.BooleanVar(value=self.config.get("default_use_barra", True))
+        self.var_def_pannello = tk.BooleanVar(value=self.config.get("default_use_pannello", True))
+        
+        chk_res = tk.Checkbutton(f_stock_def, text="Residuo (♻️)", variable=self.var_def_residuo)
+        chk_res.pack(side=tk.LEFT, padx=3)
+        chk_bar = tk.Checkbutton(f_stock_def, text="Barra (📁)", variable=self.var_def_barra)
+        chk_bar.pack(side=tk.LEFT, padx=3)
+        chk_pan = tk.Checkbutton(f_stock_def, text="Pannello (🪵)", variable=self.var_def_pannello)
+        chk_pan.pack(side=tk.LEFT, padx=3)
+        
+        # Password per tab Parametri Standard (Cliente)
+        ttk.Label(tab_params, text="Password Parametri Standard:").grid(row=8, column=0, sticky=tk.W, pady=6)
+        self.ent_params_password = ttk.Entry(tab_params, width=20, show="*")
+        self.ent_params_password.insert(0, self.config.get("params_password", "password"))
+        self.ent_params_password.grid(row=8, column=1, sticky=tk.W, pady=6, padx=10)
+        
         # --- TAB DATI CLIENTE ---
         ttk.Label(tab_client, text="Nome / Ragione Sociale:").grid(row=0, column=0, sticky=tk.W, pady=8)
         self.ent_client_name = ttk.Entry(tab_client, width=30)
@@ -5038,24 +5079,8 @@ class DbSettingsDialog(tk.Toplevel):
         self.ent_client_email.insert(0, self.config.get("client_email", ""))
         self.ent_client_email.grid(row=2, column=1, sticky=tk.W, pady=8, padx=10)
         
-        # default stock selections (Uso Magazzino di Default)
-        ttk.Label(tab_client, text="Uso Magazzino di Default:").grid(row=3, column=0, sticky=tk.W, pady=8)
-        f_stock_def = ttk.Frame(tab_client)
-        f_stock_def.grid(row=3, column=1, sticky=tk.W, pady=8, padx=10)
-        
-        self.var_def_residuo = tk.BooleanVar(value=self.config.get("default_use_residuo", True))
-        self.var_def_barra = tk.BooleanVar(value=self.config.get("default_use_barra", True))
-        self.var_def_pannello = tk.BooleanVar(value=self.config.get("default_use_pannello", True))
-        
-        chk_res = tk.Checkbutton(f_stock_def, text="Residuo (♻️)", variable=self.var_def_residuo)
-        chk_res.pack(side=tk.LEFT, padx=3)
-        chk_bar = tk.Checkbutton(f_stock_def, text="Barra (📁)", variable=self.var_def_barra)
-        chk_bar.pack(side=tk.LEFT, padx=3)
-        chk_pan = tk.Checkbutton(f_stock_def, text="Pannello (🪵)", variable=self.var_def_pannello)
-        chk_pan.pack(side=tk.LEFT, padx=3)
-        
         # Controllo Licenza
-        ttk.Label(tab_client, text="Controllo Licenza:").grid(row=4, column=0, sticky=tk.W, pady=8)
+        ttk.Label(tab_client, text="Controllo Licenza:").grid(row=3, column=0, sticky=tk.W, pady=8)
         self.var_license_enabled = tk.BooleanVar(value=self.config.get("license_enabled", True))
         self.chk_license = tk.Checkbutton(
             tab_client, 
@@ -5065,7 +5090,7 @@ class DbSettingsDialog(tk.Toplevel):
             disabledforeground="#7f8c8d",
             command=self.update_license_fields_state
         )
-        self.chk_license.grid(row=4, column=1, sticky=tk.W, pady=8, padx=10)
+        self.chk_license.grid(row=3, column=1, sticky=tk.W, pady=8, padx=10)
         
         def unlock_settings_license(event):
             pwd = simpledialog.askstring("Sblocco di sicurezza", "Inserire la password di sblocco licenza:", show="*")
@@ -5083,13 +5108,13 @@ class DbSettingsDialog(tk.Toplevel):
             self.ent_client_cf_piva.configure(state="disabled")
             
         # Versione Software
-        ttk.Label(tab_client, text="Versione Software:").grid(row=5, column=0, sticky=tk.W, pady=8)
+        ttk.Label(tab_client, text="Versione Software:").grid(row=4, column=0, sticky=tk.W, pady=8)
         lbl_version_val = ttk.Label(tab_client, text=f"{self.app.APP_VERSION} (Attiva)", font=("Segoe UI", 10, "bold"))
-        lbl_version_val.grid(row=5, column=1, sticky=tk.W, pady=8, padx=10)
+        lbl_version_val.grid(row=4, column=1, sticky=tk.W, pady=8, padx=10)
         
         # Forza Aggiornamento
         btn_force_update = ttk.Button(tab_client, text="🔄 Verifica / Forza Aggiornamento", command=self.force_update_check)
-        btn_force_update.grid(row=6, column=1, sticky=tk.W, pady=8, padx=10)
+        btn_force_update.grid(row=5, column=1, sticky=tk.W, pady=8, padx=10)
             
         # --- CONFIGURAZIONE TAB GENERAZIONE RILASCIO ---
         ttk.Label(tab_build, text="STRUMENTI DI RILASCIO", font=("Segoe UI", 11, "bold"), foreground=self.accent_color).pack(anchor=tk.W, pady=(0, 10))
@@ -5196,6 +5221,7 @@ class DbSettingsDialog(tk.Toplevel):
             messagebox.showerror("Errore Dati", "Verifica che i parametri standard siano numeri validi non negativi.")
             return
 
+        params_pwd = self.ent_params_password.get().strip() or "password"
         if not self.is_admin:
             new_config = dict(self.config)
             new_config["default_kerf"] = k
@@ -5205,6 +5231,10 @@ class DbSettingsDialog(tk.Toplevel):
             new_config["default_macchina"] = self.cmb_def_macchina.get().lower()
             new_config["default_min_w"] = mw
             new_config["default_min_h"] = mh
+            new_config["default_use_residuo"] = self.var_def_residuo.get()
+            new_config["default_use_barra"] = self.var_def_barra.get()
+            new_config["default_use_pannello"] = self.var_def_pannello.get()
+            new_config["params_password"] = params_pwd
         else:
             db_type = self.db_type_var.get()
             new_config = {
@@ -5226,6 +5256,7 @@ class DbSettingsDialog(tk.Toplevel):
                 "show_cut_progression": self.config.get("show_cut_progression", True),
                 "default_min_w": mw,
                 "default_min_h": mh,
+                "params_password": params_pwd,
                 
                 # Dati cliente e funzioni importazione / uso magazzino
                 "client_name": self.ent_client_name.get().strip(),

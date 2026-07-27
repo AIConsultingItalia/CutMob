@@ -1962,6 +1962,10 @@ def test_settings_protection_and_tabs():
     original_db_path = app.data_manager.db_path
     test_db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "test_db_settings.json")
     app.data_manager.db_path = test_db_path
+    original_config = app.data_manager.load_config()
+    test_cfg = dict(original_config)
+    test_cfg["params_password"] = "password"
+    app.data_manager.save_config(test_cfg)
     
     # Mock dei dialoghi
     original_askstring = app_mod.simpledialog.askstring
@@ -1989,11 +1993,10 @@ def test_settings_protection_and_tabs():
         app.show_db_settings_dialog()
         assert showerror_called is True
         
-        # 2. Test password corretta
-        password_attempt = "Rdf202764!"
+        # 2. Test password cliente (default: "password") - accesso operatore (solo Parametri Standard)
+        password_attempt = "password"
         showerror_called = False
         
-        # Intercettiamo l'apertura del dialog per verificare i campi e salvarli
         opened_dialog = None
         original_init = DbSettingsDialog.__init__
         
@@ -2006,6 +2009,30 @@ def test_settings_protection_and_tabs():
         
         app.show_db_settings_dialog()
         assert opened_dialog is not None
+        assert opened_dialog.is_admin is False
+        assert hasattr(opened_dialog, "ent_params_password")
+        assert hasattr(opened_dialog, "var_def_residuo")
+        
+        # Modifica password cliente in "clientepass2026"
+        opened_dialog.ent_params_password.delete(0, tk.END)
+        opened_dialog.ent_params_password.insert(0, "clientepass2026")
+        opened_dialog.save_settings()
+        
+        # 3. Test nuovo login con nuova password cliente "clientepass2026"
+        password_attempt = "clientepass2026"
+        opened_dialog = None
+        app.show_db_settings_dialog()
+        assert opened_dialog is not None
+        assert opened_dialog.is_admin is False
+        
+        # 4. Test password amministrazione "Rdf202764!"
+        password_attempt = "Rdf202764!"
+        showerror_called = False
+        opened_dialog = None
+        
+        app.show_db_settings_dialog()
+        assert opened_dialog is not None
+        assert opened_dialog.is_admin is True
         
         # Verifica la presenza delle linguette (Notebook)
         assert hasattr(opened_dialog, "notebook")
@@ -2034,8 +2061,15 @@ def test_settings_protection_and_tabs():
         DbSettingsDialog.__init__ = original_init
         if os.path.exists(test_db_path):
             os.remove(test_db_path)
+        app.data_manager.save_config(original_config)
         app.data_manager.db_path = original_db_path
-        root.destroy()
+        try:
+            root.quit()
+            root.destroy()
+        except Exception:
+            pass
+        del app
+        del root
 
 def test_grain_rotation_and_selection():
     print("\n=== AVVIO TEST LOGICHE ROTAZIONE E DIREZIONE VENATURA ===")

@@ -12,6 +12,17 @@ LICENSE_PATH = os.path.join(DB_DIR, "licenza.key")
 CONFIG_PATH = os.path.join(DB_DIR, "config.json")
 DATABASE_PATH = os.path.join(DB_DIR, "database.json")
 
+def set_install_dir(target_dir):
+    global INSTALL_DIR, DB_DIR, LICENSE_PATH, CONFIG_PATH, DATABASE_PATH
+    if target_dir and target_dir.strip():
+        INSTALL_DIR = os.path.abspath(target_dir.strip())
+    else:
+        INSTALL_DIR = r"C:\CutMob"
+    DB_DIR = os.path.join(INSTALL_DIR, "DbDati")
+    LICENSE_PATH = os.path.join(DB_DIR, "licenza.key")
+    CONFIG_PATH = os.path.join(DB_DIR, "config.json")
+    DATABASE_PATH = os.path.join(DB_DIR, "database.json")
+
 def create_desktop_shortcut(target_exe, shortcut_path, working_dir, icon_path):
     try:
         ps_script = f"""
@@ -79,8 +90,9 @@ def merge_databases(existing_path, default_db):
             json.dump(user_db, f, indent=4)
 
 class InstallerApp:
-    def __init__(self, root):
+    def __init__(self, root, auto_start=False):
         self.root = root
+        self.auto_start = auto_start
         self.root.title("Setup - CutMob")
         self.root.geometry("500x380")
         self.root.resizable(False, False)
@@ -94,6 +106,8 @@ class InstallerApp:
         self.is_update = os.path.exists(LICENSE_PATH)
         
         self.setup_ui()
+        if self.auto_start:
+            self.root.after(200, self.start_install)
         
     def setup_ui(self):
         # Header
@@ -113,7 +127,7 @@ class InstallerApp:
         if self.is_update:
             status_text = "Rilevata installazione precedente attiva."
             description = (
-                "È stata trovata una licenza valida in C:\\CutMob.\n\n"
+                f"È stata trovata un'installazione in {INSTALL_DIR}.\n\n"
                 "Procedendo, l'installer aggiornerà l'applicazione all'ultima versione "
                 "mantenendo intatti tutti i dati esistenti:\n"
                 "• I database delle commesse e materiali\n"
@@ -125,8 +139,8 @@ class InstallerApp:
             status_text = "Nessuna installazione precedente trovata."
             description = (
                 "Verrà configurata una nuova installazione di CutMob sul computer.\n\n"
-                "Il programma verrà installato nella cartella predefinita:\n"
-                "• C:\\CutMob\n\n"
+                f"Il programma verrà installato nella cartella:\n"
+                f"• {INSTALL_DIR}\n\n"
                 "Al termine dell'installazione, l'applicazione verrà avviata "
                 "e ti verrà richiesto di inserire la chiave di licenza per l'attivazione."
             )
@@ -167,6 +181,17 @@ class InstallerApp:
         self.lbl_progress_status.pack(anchor=tk.W)
         self.root.update()
         
+        # Termina eventuali processi CutMob.exe attivi per sbloccare i file su Windows
+        try:
+            if os.name == 'nt':
+                subprocess.run(["taskkill", "/f", "/im", "CutMob.exe"], 
+                               creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, 'CREATE_NO_WINDOW') else 0, 
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                import time
+                time.sleep(1.5)
+        except Exception:
+            pass
+            
         try:
             # Trova la risorsa zip incorporata (PyInstaller estrae in sys._MEIPASS)
             base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
@@ -199,7 +224,6 @@ class InstallerApp:
                 
                 for i, member in enumerate(file_list):
                     # Costruisci il percorso di destinazione
-                    # Rimuoviamo il prefisso 'CutMob/' se presente per estrarre direttamente
                     parts = member.split('/', 1)
                     if len(parts) > 1 and parts[1]:
                         rel_path = parts[1]
@@ -268,7 +292,6 @@ class InstallerApp:
             try:
                 desktop_folder = os.path.join(os.environ.get("USERPROFILE", ""), "Desktop")
                 if not os.path.exists(desktop_folder):
-                    # Fallback per percorsi in lingua diversa o OneDrive
                     desktop_folder = os.path.expanduser("~/Desktop")
                 
                 shortcut_path = os.path.join(desktop_folder, "CutMob.lnk")
@@ -286,11 +309,11 @@ class InstallerApp:
             self.lbl_progress_status.config(text="Completato!")
             self.root.update()
             
-            # Messaggio di successo
-            msg_succ = "Aggiornamento completato con successo!" if self.is_update else "Installazione completata con successo!"
-            messagebox.showinfo("Successo", msg_succ)
+            if not self.auto_start:
+                msg_succ = "Aggiornamento completato con successo!" if self.is_update else "Installazione completata con successo!"
+                messagebox.showinfo("Successo", msg_succ)
             
-            # Avvia l'applicazione
+            # Avvia l'applicazione aggiornata
             exe_path = os.path.join(INSTALL_DIR, "CutMob.exe")
             if os.path.exists(exe_path):
                 subprocess.Popen([exe_path], cwd=INSTALL_DIR)
@@ -304,6 +327,15 @@ class InstallerApp:
             self.progress_var.set(0)
 
 if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser(description="Installer CutMob")
+    parser.add_argument("--auto", action="store_true", help="Esegue l'aggiornamento automatico")
+    parser.add_argument("--target-dir", type=str, default="", help="Cartella di destinazione dell'installazione")
+    args, _ = parser.parse_known_args()
+    
+    if args.target_dir:
+        set_install_dir(args.target_dir)
+        
     root = tk.Tk()
-    app = InstallerApp(root)
+    app = InstallerApp(root, auto_start=args.auto)
     root.mainloop()

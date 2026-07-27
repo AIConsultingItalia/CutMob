@@ -63,7 +63,11 @@ class DataManager:
             "client_name": "",
             "client_cf_piva": "",
             "client_email": "",
-            "license_enabled": True
+            "license_enabled": True,
+            "default_use_residuo": True,
+            "default_use_barra": True,
+            "default_use_pannello": True,
+            "params_password": "password"
         }
         if not os.path.exists(config_path):
             self.save_config(default_config)
