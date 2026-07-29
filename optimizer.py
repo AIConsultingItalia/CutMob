@@ -168,8 +168,18 @@ class CuttingOptimizer:
             else:
                 group_respect_grain = False
 
-            # Strategie di ordinamento: altezza decrescente, area decrescente, larghezza decrescente
+            def is_full_bar_match(p):
+                if not stocks_gruppo:
+                    return False
+                st_h = stocks_gruppo[0].get("height", 0.0)
+                st_w = stocks_gruppo[0].get("width", 0.0)
+                return abs(p["height"] - st_h) <= 1.0 or abs(p["width"] - st_h) <= 1.0 or abs(p["height"] - st_w) <= 1.0 or abs(p["width"] - st_w) <= 1.0
+
+            # Strategie di ordinamento: priorità a pezzi a larghezza intera della barra, poi altezza/area/larghezza decrescente
             sorting_strategies = [
+                lambda p: (not is_full_bar_match(p), -p["height"], -p["width"]),
+                lambda p: (not is_full_bar_match(p), -(p["width"] * p["height"]), -p["height"]),
+                lambda p: (not is_full_bar_match(p), -p["width"], -p["height"]),
                 lambda p: (-p["height"], -p["width"]),
                 lambda p: (-(p["width"] * p["height"]), -p["height"]),
                 lambda p: (-p["width"], -p["height"])
@@ -225,23 +235,40 @@ class CuttingOptimizer:
                     boards_used = len(used_boards)
                     total_waste_area = 0.0
                     reusable_bonus_area = 0.0
-                    
+                    is_bar_group_stock = any(s.get("stock_type") == "semilavorato_bar" for s in stocks_gruppo) or bool(std_heights)
+                    interleave_penalty = 0.0
+
                     for ub in used_boards:
                         total_waste_area += ub["waste_area"]
-                        # Premia fortemente le soluzioni che generano maxi-residui unici riutilizzabili (semilavorati grandi)
+                        st_h = ub["board"].get("height", 0.0)
+                        st_w = ub["board"].get("width", 0.0)
+                        
+                        # Premia le soluzioni che generano maxi-residui unici riutilizzabili (semilavorati grandi)
                         for sem in ub.get("new_semilavorati", []):
                             sw, sh = sem.get("width", 0.0), sem.get("height", 0.0)
                             area = sw * sh
                             if sw >= min_semilavorato_width and sh >= min_semilavorato_height:
-                                # Usiamo un esponente su area per privilegiare enormemente i residui grandi e unici rispetto a molti piccoli
-                                reusable_bonus_area += (area ** 1.3)
+                                if is_bar_group_stock:
+                                    # Su barre standard, premiamo solo residui a tutta altezza/larghezza (fine barra)
+                                    if abs(sh - st_h) <= 1.0 or abs(sw - st_h) <= 1.0 or abs(sh - st_w) <= 1.0 or abs(sw - st_w) <= 1.0:
+                                        reusable_bonus_area += (area ** 1.3)
+                                else:
+                                    reusable_bonus_area += (area ** 1.3)
+                        
+                        # Su barre, penalizziamo la presenza contemporanea sulla stessa barra di pezzi a tutta altezza e pezzi parziali
+                        if is_bar_group_stock:
+                            placed = ub.get("placed_pieces", [])
+                            has_full = any(abs(p["h"] - st_h) <= 1.0 or abs(p["w"] - st_h) <= 1.0 or abs(p["h"] - st_w) <= 1.0 or abs(p["w"] - st_w) <= 1.0 for p in placed)
+                            has_partial = any(not (abs(p["h"] - st_h) <= 1.0 or abs(p["w"] - st_h) <= 1.0 or abs(p["h"] - st_w) <= 1.0 or abs(p["w"] - st_w) <= 1.0) for p in placed)
+                            if has_full and has_partial:
+                                interleave_penalty += 500000.0
                     
                     # Penalizziamo l'area dei pezzi non piazzati per essere consistenti
                     for up in unplaced:
                         total_waste_area += (up["width"] * up["height"]) * 2.0  # Alta penalità per pezzi non piazzati
                     
-                    # Punteggio finale: 1. Pezzi non piazzati, 2. Lastre usate, 3. Scarto effettivo (meno i semilavorati recuperabili)
-                    effective_waste_score = total_waste_area - reusable_bonus_area
+                    # Punteggio finale: 1. Pezzi non piazzati, 2. Lastre usate, 3. Scarto effettivo (meno i semilavorati recuperabili) + penalità interleave
+                    effective_waste_score = total_waste_area - reusable_bonus_area + interleave_penalty
                     score = (len(unplaced), boards_used, effective_waste_score)
                     
                     if score < best_score:
@@ -664,61 +691,63 @@ class CuttingOptimizer:
             
             is_bar = board.get("stock_type") in ["semilavorato_bar", "remnant"]
             if is_bar and ub["placed_pieces"]:
-                ub["cuts"] = []
-                bw = board["width"]
-                bh = board["height"]
-                pieces = sorted(ub["placed_pieces"], key=lambda p: p["x"])
-                
-                # Raggruppiamo i pezzi adiacenti che hanno la stessa altezza
-                groups = []
-                current_group = [pieces[0]]
-                for p in pieces[1:]:
-                    if abs(p["h"] - current_group[0]["h"]) < 1e-2:
-                        current_group.append(p)
-                    else:
-                        groups.append(current_group)
-                        current_group = [p]
-                groups.append(current_group)
-                
-                # Generiamo i tagli ottimizzati per ciascun gruppo
-                for group in groups:
-                    x_start = group[0]["x"]
-                    x_end = group[-1]["x"] + group[-1]["w"]
-                    h_group = group[0]["h"]
+                is_single_row = all(abs(p["y"]) < 1e-2 for p in ub["placed_pieces"])
+                if is_single_row:
+                    ub["cuts"] = []
+                    bw = board["width"]
+                    bh = board["height"]
+                    pieces = sorted(ub["placed_pieces"], key=lambda p: p["x"])
                     
-                    # 1. Taglio verticale per separare il gruppo dal resto della barra
-                    if x_end < bw - 1e-2:
-                        ub["cuts"].append({
-                            "type": "V",
-                            "x1": x_end,
-                            "y1": 0.0,
-                            "x2": x_end,
-                            "y2": bh,
-                            "level": 1
-                        })
+                    # Raggruppiamo i pezzi adiacenti che hanno la stessa altezza
+                    groups = []
+                    current_group = [pieces[0]]
+                    for p in pieces[1:]:
+                        if abs(p["h"] - current_group[0]["h"]) < 1e-2:
+                            current_group.append(p)
+                        else:
+                            groups.append(current_group)
+                            current_group = [p]
+                    groups.append(current_group)
+                    
+                    # Generiamo i tagli ottimizzati per ciascun gruppo
+                    for group in groups:
+                        x_start = group[0]["x"]
+                        x_end = group[-1]["x"] + group[-1]["w"]
+                        h_group = group[0]["h"]
                         
-                    # 2. Taglio orizzontale di rifilo unico per l'intero gruppo
-                    if bh - h_group >= self.kerf:
-                        ub["cuts"].append({
-                            "type": "H",
-                            "x1": x_start,
-                            "y1": h_group,
-                            "x2": x_end,
-                            "y2": h_group,
-                            "level": 2
-                        })
-                        
-                    # 3. Tagli verticali interni per separare i singoli pezzi
-                    for p in group[:-1]:
-                        cut_x = p["x"] + p["w"]
-                        ub["cuts"].append({
-                            "type": "V",
-                            "x1": cut_x,
-                            "y1": 0.0,
-                            "x2": cut_x,
-                            "y2": h_group,
-                            "level": 3
-                        })
+                        # 1. Taglio verticale per separare il gruppo dal resto della barra
+                        if x_end < bw - 1e-2:
+                            ub["cuts"].append({
+                                "type": "V",
+                                "x1": x_end,
+                                "y1": 0.0,
+                                "x2": x_end,
+                                "y2": bh,
+                                "level": 1
+                            })
+                            
+                        # 2. Taglio orizzontale di rifilo unico per l'intero gruppo
+                        if bh - h_group >= self.kerf:
+                            ub["cuts"].append({
+                                "type": "H",
+                                "x1": x_start,
+                                "y1": h_group,
+                                "x2": x_end,
+                                "y2": h_group,
+                                "level": 2
+                            })
+                            
+                        # 3. Tagli verticali interni per separare i singoli pezzi
+                        for p in group[:-1]:
+                            cut_x = p["x"] + p["w"]
+                            ub["cuts"].append({
+                                "type": "V",
+                                "x1": cut_x,
+                                "y1": 0.0,
+                                "x2": cut_x,
+                                "y2": h_group,
+                                "level": 3
+                            })
             
             ub["new_semilavorati"] = []
             for r in ub["free_rectangles"]:

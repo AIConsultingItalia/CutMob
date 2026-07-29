@@ -1377,9 +1377,46 @@ class DataManager:
                 p_dim_size = min(dim_font_size, int(piece_min_dim * 0.18))
                 p_dim_size = max(9, p_dim_size)
             
+            # Descrizione al centro e quote
+            avail_width = max(10.0, pw - (p_dim_size * 4.0))
+            avail_height = max(10.0, ph - (p_dim_size * 3.0))
+
+            words = desc.split(" ")
+            if len(words) > 2 and len(desc) > 12:
+                mid = len(words) // 2
+                desc_lines = [" ".join(words[:mid]), " ".join(words[mid:])]
+            else:
+                desc_lines = [desc]
+
+            max_line_chars = max(len(line) for line in desc_lines) if desc_lines else 1
+            est_width = max_line_chars * (p_desc_size * 0.58)
+
+            if est_width > avail_width:
+                scale_ratio = avail_width / est_width
+                min_font = 8.0 if for_pdf else 9.0
+                p_desc_size = max(min_font, p_desc_size * scale_ratio)
+
+            if len(desc_lines) > 1 and (avail_height < p_desc_size * 2.2):
+                desc_lines = [desc]
+                max_line_chars = len(desc)
+                est_width = max_line_chars * (p_desc_size * 0.58)
+                if est_width > avail_width:
+                    scale_ratio = avail_width / est_width
+                    min_font = 7.5 if for_pdf else 8.5
+                    p_desc_size = max(min_font, p_desc_size * scale_ratio)
+
             # Descrizione al centro
-            if ph > p_desc_size * 1.4 and pw > p_desc_size * 1.8:
-                svg_parts.append(f'  <text x="{px + pw/2}" y="{py + ph/2}" font-family="Segoe UI, sans-serif" font-weight="bold" font-size="{p_desc_size}" fill="{text_fill}" text-anchor="middle" dominant-baseline="middle">{desc}</text>')
+            if ph > p_desc_size * 1.2 and pw > p_desc_size * 1.5:
+                if len(desc_lines) == 1:
+                    svg_parts.append(f'  <text x="{px + pw/2}" y="{py + ph/2}" font-family="Segoe UI, sans-serif" font-weight="bold" font-size="{p_desc_size:.1f}" fill="{text_fill}" text-anchor="middle" dominant-baseline="middle">{desc_lines[0]}</text>')
+                else:
+                    line_spacing = p_desc_size * 1.15
+                    start_y = (py + ph/2) - (line_spacing * (len(desc_lines) - 1) / 2.0)
+                    svg_parts.append(f'  <text x="{px + pw/2}" y="{start_y:.1f}" font-family="Segoe UI, sans-serif" font-weight="bold" font-size="{p_desc_size:.1f}" fill="{text_fill}" text-anchor="middle" dominant-baseline="central">')
+                    for idx, line in enumerate(desc_lines):
+                        dy = 0 if idx == 0 else line_spacing
+                        svg_parts.append(f'    <tspan x="{px + pw/2}" dy="{dy:.1f}">{line}</tspan>')
+                    svg_parts.append('  </text>')
             
             # Larghezza in basso
             if pw > p_dim_size * 2 and ph > p_dim_size * 2.2:

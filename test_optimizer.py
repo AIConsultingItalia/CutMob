@@ -2228,7 +2228,41 @@ def test_bar_cutting_logic_vs_for_reduced_width():
 
     print("=== TEST TAGLIO ORIZZONTALE PRIMA DI RIFILO SU BARRA COMPLETATO CON SUCCESSO! ===")
 
+def test_full_width_bar_prioritization():
+    print("\n=== AVVIO TEST PRIORITA PEZZI A LARGHEZZA INTERA SU BARRE ===")
+    stocks = [
+        {
+            'id': 'stock_1',
+            'width': 2800.0,
+            'height': 597.0,
+            'thickness': 22.0,
+            'color_code': 'TEST_COLOR',
+            'color_desc': 'TEST_DESC',
+            'is_semilavorato': True,
+            'stock_type': 'semilavorato_bar'
+        }
+    ] * 5
+
+    demands = [
+        {'descrizione': 'ANTA 1317', 'width': 597.0, 'height': 1317.0, 'thickness': 22.0, 'color_code': 'TEST_COLOR', 'color_desc': 'TEST_DESC', 'quantity': 1},
+        {'descrizione': 'ANTA 717', 'width': 597.0, 'height': 717.0, 'thickness': 22.0, 'color_code': 'TEST_COLOR', 'color_desc': 'TEST_DESC', 'quantity': 2},
+        {'descrizione': 'PIECE_SMALL', 'width': 57.0, 'height': 720.0, 'thickness': 22.0, 'color_code': 'TEST_COLOR', 'color_desc': 'TEST_DESC', 'quantity': 1},
+    ]
+
+    opt = CuttingOptimizer(kerf=5.0)
+    res = opt.optimize(stocks, demands, respect_grain=True, machine_type="sezionatrice", group_std_heights={'22.0mm_TEST_COLOR': [597.0]})
+    used_boards = res['gruppi']['22.0mm_TEST_COLOR']['used_boards']
+    
+    # Verifica che il primo layout contenga solo pezzi a tutta larghezza (597)
+    first_board = used_boards[0]
+    placed_descs = [p.get('descrizione') for p in first_board['placed_pieces']]
+    assert 'ANTA 1317' in placed_descs
+    assert 'ANTA 717' in placed_descs
+    assert 'PIECE_SMALL' not in placed_descs, "PIECE_SMALL non deve essere inserito prima di completare le ante a tutta altezza sulla barra"
+    print("Test priorità pezzi a tutta larghezza superato con successo!")
+
 if __name__ == "__main__":
+    test_full_width_bar_prioritization()
     test_bar_cutting_logic_vs_for_reduced_width()
     test_grain_rotation_and_selection()
     test_settings_protection_and_tabs()
@@ -2253,3 +2287,4 @@ if __name__ == "__main__":
     test_standard_bar_height_constraint()
     test_filtering_and_f3_optimization()
     test_commessa_delete_and_clear_filters()
+

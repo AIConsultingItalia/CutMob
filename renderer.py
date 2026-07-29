@@ -222,15 +222,25 @@ class LayoutRenderer:
                         width=pw_canvas - 2
                     )
             else:
-                # Per pezzi grandi, teniamo i testi separati ma ottimizzati per evitare sovrapposizioni
-                # 1. Descrizione (leggermente spostata verso l'alto per non toccare la larghezza in basso)
+                # Per pezzi grandi, teniamo i testi separati ma ottimizzati per evitare sovrapposizioni con le quote
+                desc_font_size = 9
+                if len(desc_text) > 16 or pw_canvas < 120:
+                    desc_font_size = 8
+                if len(desc_text) > 25 or pw_canvas < 90:
+                    desc_font_size = 7
+                    
+                # Calcoliamo la larghezza massima per la descrizione lasciando margine per la quota verticale (px1 + 18)
+                max_desc_width = max(10, pw_canvas - 44)
+                
+                # 1. Descrizione centrata ma con margine sicuro a sinistra e a destra
                 canvas.create_text(
                     px1 + pw_canvas / 2,
                     py1 + ph_canvas / 2 - 5,
                     text=desc_text,
                     fill=self.color_palette["piece_fg"],
-                    font=("Segoe UI", 9, "bold"),
-                    width=pw_canvas - 20
+                    font=("Segoe UI", desc_font_size, "bold"),
+                    width=max_desc_width,
+                    justify=tk.CENTER
                 )
                 
                 # 2. Larghezza sul lato orizzontale (in basso, centrato orizzontalmente)

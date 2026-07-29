@@ -10,7 +10,7 @@ from renderer import LayoutRenderer
 class CutMobApp:
     def __init__(self, root):
         self.root = root
-        self.APP_VERSION = "2.2.8"
+        self.APP_VERSION = "2.2.9"
         self.root.title("CutMob - Ottimizzatore di Taglio Pannelli")
         self.root.geometry("1100x700")
         self.root.minsize(900, 600)
