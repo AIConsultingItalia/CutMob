@@ -28,6 +28,17 @@ class CuttingOptimizer:
         else:
             return [(w_p, h_p)]
 
+    def _is_full_bar_piece(self, board, piece, respect_grain):
+        st_w = board.get("width", 0.0)
+        st_h = board.get("height", 0.0)
+        is_whole = (board.get("stock_type") == "whole_board")
+        use_sfrido = getattr(self, "sfrido", 0.0) if is_whole else 0.0
+        orientations = self._get_orientations(board, piece, respect_grain, use_sfrido, getattr(self, "panel_grain_direction", "verticale"))
+        for w, h in orientations:
+            if abs(w - st_w) <= 1.0 or abs(h - st_h) <= 1.0 or abs(w - st_h) <= 1.0 or abs(h - st_w) <= 1.0:
+                return True
+        return False
+
     def optimize(self, stocks, demands, respect_grain=True, min_semilavorato_width=300.0, min_semilavorato_height=300.0, group_std_heights=None, rifilo_verticale=0.0, rifilo_orizzontale=0.0, sfrido=0.0, machine_type="sezionatrice", panel_grain_direction="verticale"):
         """
         Ottimizza il taglio dei pezzi (demands) sulle barre a disposizione (stocks).
@@ -498,6 +509,11 @@ class CuttingOptimizer:
         bw = board["width"]
         bh = board["height"]
         
+        is_bar_stock = board.get("stock_type") in ["semilavorato_bar", "remnant"] or (std_heights is not None)
+        is_piece_full = self._is_full_bar_piece(board, piece, respect_grain)
+        if is_bar_stock and ub.get("is_full_bar_dedicated", False) and not is_piece_full:
+            return False
+
         is_whole = (board.get("stock_type") == "whole_board")
         use_sfrido = self.sfrido if is_whole else 0.0
         
@@ -531,6 +547,8 @@ class CuttingOptimizer:
                         shelf["width_used"] += needed_w
                         shelf["placed_count"] += 1
                         ub["used_area"] += w * h
+                        if is_bar_stock and is_piece_full:
+                            ub["is_full_bar_dedicated"] = True
                         return True
 
         # 2. Se non entra in nessun ripiano, prova a creare un NUOVO ripiano
@@ -582,6 +600,11 @@ class CuttingOptimizer:
             
             # Cerca il miglior rettangolo libero tra le lastre usate esistenti
             for b_idx, ub in enumerate(used_boards):
+                is_bar_stock = ub["board"].get("stock_type") in ["semilavorato_bar", "remnant"] or (std_heights is not None)
+                is_piece_full = self._is_full_bar_piece(ub["board"], piece, respect_grain)
+                if is_bar_stock and ub.get("is_full_bar_dedicated", False) and not is_piece_full:
+                    continue
+
                 is_whole = (ub["board"].get("stock_type") == "whole_board")
                 use_sfrido = self.sfrido if is_whole else 0.0
                 orientations = self._get_orientations(ub["board"], piece, respect_grain, use_sfrido, self.panel_grain_direction)
@@ -627,6 +650,9 @@ class CuttingOptimizer:
                     "rotated": (w != pw)
                 })
                 ub["used_area"] += w * h
+                is_bar_stock = ub["board"].get("stock_type") in ["semilavorato_bar", "remnant"] or (std_heights is not None)
+                if is_bar_stock and self._is_full_bar_piece(ub["board"], piece, respect_grain):
+                    ub["is_full_bar_dedicated"] = True
                 self._split_free_rectangle(ub, r, w, h, split_heuristic, level=r.get("level", 1))
             else:
                 # Se non entra in nessuna lastra già avviata, prova a prenderne una dallo stock
