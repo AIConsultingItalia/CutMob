@@ -38,6 +38,45 @@ class CuttingOptimizer:
             if abs(w - st_w) <= 1.0 or abs(h - st_h) <= 1.0 or abs(w - st_h) <= 1.0 or abs(h - st_w) <= 1.0:
                 return True
         return False
+    def _find_best_stock_index_for_piece(self, stocks, piece, respect_grain, std_heights=None):
+        if not stocks:
+            return -1, (0.0, 0.0)
+
+        is_bar_strategy_exact = (getattr(self, "bar_strategy", "misura_esatta") == "misura_esatta")
+        
+        # 1. Se in modalità misura esatta, cerca prima il match di altezza/larghezza esatto con una barra a magazzino
+        if is_bar_strategy_exact:
+            for idx, board in enumerate(stocks):
+                st_w, st_h = board["width"], board["height"]
+                is_whole = (board.get("stock_type") == "whole_board")
+                use_sfrido = getattr(self, "sfrido", 0.0) if is_whole else 0.0
+                orientations = self._get_orientations(board, piece, respect_grain, use_sfrido, getattr(self, "panel_grain_direction", "verticale"))
+                for w, h in orientations:
+                    if w <= st_w and h <= st_h:
+                        if self._is_height_allowed(board, h, std_heights, is_used=False):
+                            if abs(h - st_h) <= 1.0 or abs(w - st_h) <= 1.0 or abs(h - st_w) <= 1.0 or abs(w - st_w) <= 1.0:
+                                return idx, (w, h)
+
+        # 2. Se non c'è match esatto (fuori misura) o strategia == massimo_recupero, scegli la barra con lo sfrido minimo
+        best_idx = -1
+        best_waste = float('inf')
+        best_orient = (0.0, 0.0)
+
+        for idx, board in enumerate(stocks):
+            st_w, st_h = board["width"], board["height"]
+            is_whole = (board.get("stock_type") == "whole_board")
+            use_sfrido = getattr(self, "sfrido", 0.0) if is_whole else 0.0
+            orientations = self._get_orientations(board, piece, respect_grain, use_sfrido, getattr(self, "panel_grain_direction", "verticale"))
+            for w, h in orientations:
+                if w <= st_w and h <= st_h:
+                    if self._is_height_allowed(board, h, std_heights, is_used=False):
+                        waste = (st_w * st_h) - (w * h)
+                        if waste < best_waste:
+                            best_waste = waste
+                            best_idx = idx
+                            best_orient = (w, h)
+
+        return best_idx, best_orient
 
     def optimize(self, stocks, demands, respect_grain=True, min_semilavorato_width=300.0, min_semilavorato_height=300.0, group_std_heights=None, rifilo_verticale=0.0, rifilo_orizzontale=0.0, sfrido=0.0, machine_type="sezionatrice", panel_grain_direction="verticale", bar_strategy="misura_esatta"):
         """
@@ -397,23 +436,7 @@ class CuttingOptimizer:
             
             # Se non ci sta, prova ad avviare una nuova lastra dallo stock disponibile
             if not placed:
-                new_board_index = -1
-                for idx, board in enumerate(stocks):
-                    is_whole = (board.get("stock_type") == "whole_board")
-                    use_sfrido = self.sfrido if is_whole else 0.0
-                    w_b, h_b = board["width"], board["height"]
-                    orientations = self._get_orientations(board, piece, respect_grain, use_sfrido, self.panel_grain_direction)
-                        
-                    can_fit = False
-                    for w, h in orientations:
-                        if w <= w_b and h <= h_b:
-                            if self._is_height_allowed(board, h, std_heights, is_used=False):
-                                can_fit = True
-                                break
-                        
-                    if can_fit:
-                        new_board_index = idx
-                        break
+                new_board_index, _ = self._find_best_stock_index_for_piece(stocks, piece, respect_grain, std_heights)
                 
                 if new_board_index != -1:
                     board = stocks.pop(new_board_index)
@@ -658,23 +681,7 @@ class CuttingOptimizer:
                 self._split_free_rectangle(ub, r, w, h, split_heuristic, level=r.get("level", 1))
             else:
                 # Se non entra in nessuna lastra già avviata, prova a prenderne una dallo stock
-                new_board_index = -1
-                for idx, board in enumerate(stocks):
-                    is_whole = (board.get("stock_type") == "whole_board")
-                    use_sfrido = self.sfrido if is_whole else 0.0
-                    w_b, h_b = board["width"], board["height"]
-                    orientations = self._get_orientations(board, piece, respect_grain, use_sfrido, self.panel_grain_direction)
-                        
-                    can_fit = False
-                    for w, h in orientations:
-                        if w <= w_b and h <= h_b:
-                            if self._is_height_allowed(board, h, std_heights, is_used=False):
-                                can_fit = True
-                                best_orientation = (w, h)
-                                break
-                    if can_fit:
-                         new_board_index = idx
-                         break
+                new_board_index, best_orientation = self._find_best_stock_index_for_piece(stocks, piece, respect_grain, std_heights)
                          
                 if new_board_index != -1:
                     board = stocks.pop(new_board_index)
