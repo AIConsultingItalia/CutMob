@@ -70,6 +70,16 @@ class CutMobApp:
         self.root.bind_all("<F1>", self.show_help_dialog)
         self.root.bind_all("<F4>", self.toggle_cut_progression)
 
+    def on_machine_type_change(self, event=None):
+        if not hasattr(self, "cmb_macchina") or not hasattr(self, "cmb_bar_strategy"):
+            return
+        macch = self.cmb_macchina.get().lower()
+        if "pantografo" in macch:
+            self.cmb_bar_strategy.set("Massimo Recupero Sfrido")
+            self.cmb_bar_strategy.config(state="disabled")
+        else:
+            self.cmb_bar_strategy.config(state="readonly")
+
     def update_client_display(self):
         client_name = self.data_manager.config.get("client_name", "")
         if client_name:
@@ -241,12 +251,14 @@ class CutMobApp:
         else:
             self.cmb_macchina.set("Sezionatrice Automatica CNC")
         self.cmb_macchina.pack(fill=tk.X, pady=(1, 4))
+        self.cmb_macchina.bind("<<ComboboxSelected>>", self.on_machine_type_change)
         
         # Strategia Barre (Misura Esatta vs Massimo Recupero)
         ttk.Label(sidebar, text="Strategia Barre:", background=self.bg_card).pack(anchor=tk.W, pady=(2, 0))
         self.cmb_bar_strategy = ttk.Combobox(sidebar, values=["Barre a Misura Esatta (Consigliato)", "Massimo Recupero Sfrido"], state="readonly")
         self.cmb_bar_strategy.set("Barre a Misura Esatta (Consigliato)")
         self.cmb_bar_strategy.pack(fill=tk.X, pady=(1, 4))
+        self.on_machine_type_change()
         
         # Venatura (Grain) - Rimosso dalla UI maschera sinistra per richiesta utente
         self.var_grain = tk.BooleanVar(value=True)
