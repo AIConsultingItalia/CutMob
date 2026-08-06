@@ -45,9 +45,6 @@ class CuttingOptimizer:
         
         Parametri:
         - bar_strategy: "misura_esatta" (Priorità barre a misura esatta per ciascun elemento) oppure "massimo_recupero" (Priorità massimo recupero sfrido/compattazione).
-        """
-        
-        Parametri:
         - stocks: lista di dizionari con keys:
             ['id', 'width', 'height', 'thickness', 'color_code', 'color_desc', 'is_semilavorato', 'stock_type']
         - demands: lista di dizionari con keys:
