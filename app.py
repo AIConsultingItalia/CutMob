@@ -242,6 +242,12 @@ class CutMobApp:
             self.cmb_macchina.set("Sezionatrice Automatica CNC")
         self.cmb_macchina.pack(fill=tk.X, pady=(1, 4))
         
+        # Strategia Barre (Misura Esatta vs Massimo Recupero)
+        ttk.Label(sidebar, text="Strategia Barre:", background=self.bg_card).pack(anchor=tk.W, pady=(2, 0))
+        self.cmb_bar_strategy = ttk.Combobox(sidebar, values=["Barre a Misura Esatta (Consigliato)", "Massimo Recupero Sfrido"], state="readonly")
+        self.cmb_bar_strategy.set("Barre a Misura Esatta (Consigliato)")
+        self.cmb_bar_strategy.pack(fill=tk.X, pady=(1, 4))
+        
         # Venatura (Grain) - Rimosso dalla UI maschera sinistra per richiesta utente
         self.var_grain = tk.BooleanVar(value=True)
         
@@ -1737,6 +1743,9 @@ Lo "Sfrido" impostato nella configurazione (es. 10 mm) è un margine aggiunto al
             # Gli standard heights e respect grain sono già precalcolati all'inizio
 
             # Avvia ottimizzazione
+            bar_strat_ui = self.cmb_bar_strategy.get() if hasattr(self, "cmb_bar_strategy") else "Barre a Misura Esatta"
+            bar_strategy = "misura_esatta" if "Misura Esatta" in bar_strat_ui else "massimo_recupero"
+
             self.optimizer.kerf = kerf
             self.optimization_results = self.optimizer.optimize(
                 stocks=stocks,
@@ -1749,7 +1758,8 @@ Lo "Sfrido" impostato nella configurazione (es. 10 mm) è un margine aggiunto al
                 rifilo_orizzontale=rifilo_h,
                 sfrido=sfrido,
                 machine_type=macchina,
-                panel_grain_direction=panel_grain_direction
+                panel_grain_direction=panel_grain_direction,
+                bar_strategy=bar_strategy
             )
             
             # Abilita bottoni

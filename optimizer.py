@@ -39,9 +39,13 @@ class CuttingOptimizer:
                 return True
         return False
 
-    def optimize(self, stocks, demands, respect_grain=True, min_semilavorato_width=300.0, min_semilavorato_height=300.0, group_std_heights=None, rifilo_verticale=0.0, rifilo_orizzontale=0.0, sfrido=0.0, machine_type="sezionatrice", panel_grain_direction="verticale"):
+    def optimize(self, stocks, demands, respect_grain=True, min_semilavorato_width=300.0, min_semilavorato_height=300.0, group_std_heights=None, rifilo_verticale=0.0, rifilo_orizzontale=0.0, sfrido=0.0, machine_type="sezionatrice", panel_grain_direction="verticale", bar_strategy="misura_esatta"):
         """
         Ottimizza il taglio dei pezzi (demands) sulle barre a disposizione (stocks).
+        
+        Parametri:
+        - bar_strategy: "misura_esatta" (Priorità barre a misura esatta per ciascun elemento) oppure "massimo_recupero" (Priorità massimo recupero sfrido/compattazione).
+        """
         
         Parametri:
         - stocks: lista di dizionari con keys:
@@ -66,6 +70,7 @@ class CuttingOptimizer:
         self.sfrido = sfrido
         self.panel_grain_direction = panel_grain_direction
         self.machine_type = machine_type
+        self.bar_strategy = bar_strategy
         for d in demands:
             key = f"{d['thickness']}mm_{d['color_code']}"
             if key not in groups:
