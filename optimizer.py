@@ -32,12 +32,26 @@ class CuttingOptimizer:
         st_w = board.get("width", 0.0)
         st_h = board.get("height", 0.0)
         is_whole = (board.get("stock_type") == "whole_board")
-        use_sfrido = getattr(self, "sfrido", 0.0) if is_whole else 0.0
-        orientations = self._get_orientations(board, piece, respect_grain, use_sfrido, getattr(self, "panel_grain_direction", "verticale"))
-        for w, h in orientations:
-            if abs(w - st_w) <= 1.0 or abs(h - st_h) <= 1.0 or abs(w - st_h) <= 1.0 or abs(h - st_w) <= 1.0:
-                return True
-        return False
+    def _can_place_piece_on_used_board(self, ub, piece, respect_grain):
+        board = ub["board"]
+        st_w, st_h = board["width"], board["height"]
+        is_bar_stock = board.get("stock_type") in ["semilavorato_bar", "remnant"] or getattr(self, "is_bar_group", False)
+        
+        if getattr(self, "bar_strategy", "misura_esatta") == "misura_esatta" and is_bar_stock:
+            if ub.get("placed_pieces"):
+                first_p = ub["placed_pieces"][0]
+                first_w, first_h = first_p["w"], first_p["h"]
+                
+                is_board_standard = (abs(min(first_w, first_h) - min(st_w, st_h)) <= 1.0)
+                
+                if is_board_standard:
+                    pw = piece.get("width_raw", piece.get("width", 0.0))
+                    ph = piece.get("height_raw", piece.get("height", 0.0))
+                    is_piece_matching = (abs(min(pw, ph) - min(first_w, first_h)) <= 1.0)
+                    if not is_piece_matching:
+                        return False
+        return True
+
     def _find_best_stock_index_for_piece(self, stocks, piece, respect_grain, std_heights=None):
         if not stocks:
             return -1, (0.0, 0.0)
@@ -52,9 +66,10 @@ class CuttingOptimizer:
                 use_sfrido = getattr(self, "sfrido", 0.0) if is_whole else 0.0
                 orientations = self._get_orientations(board, piece, respect_grain, use_sfrido, getattr(self, "panel_grain_direction", "verticale"))
                 for w, h in orientations:
-                    if w <= st_w and h <= st_h:
+                    fits = (min(w, h) <= min(st_w, st_h) + 1e-2) and (max(w, h) <= max(st_w, st_h) + 1e-2)
+                    if fits:
                         if self._is_height_allowed(board, h, std_heights, is_used=False):
-                            if abs(h - st_h) <= 1.0 or abs(w - st_h) <= 1.0 or abs(h - st_w) <= 1.0 or abs(w - st_w) <= 1.0:
+                            if abs(min(w, h) - min(st_w, st_h)) <= 1.0 or abs(max(w, h) - min(st_w, st_h)) <= 1.0:
                                 return idx, (w, h)
 
         # 2. Se non c'è match esatto (fuori misura) o strategia == massimo_recupero, scegli la barra con lo sfrido minimo
@@ -68,7 +83,8 @@ class CuttingOptimizer:
             use_sfrido = getattr(self, "sfrido", 0.0) if is_whole else 0.0
             orientations = self._get_orientations(board, piece, respect_grain, use_sfrido, getattr(self, "panel_grain_direction", "verticale"))
             for w, h in orientations:
-                if w <= st_w and h <= st_h:
+                fits = (min(w, h) <= min(st_w, st_h) + 1e-2) and (max(w, h) <= max(st_w, st_h) + 1e-2)
+                if fits:
                     if self._is_height_allowed(board, h, std_heights, is_used=False):
                         waste = (st_w * st_h) - (w * h)
                         if waste < best_waste:
@@ -534,9 +550,7 @@ class CuttingOptimizer:
         bw = board["width"]
         bh = board["height"]
         
-        is_bar_stock = board.get("stock_type") in ["semilavorato_bar", "remnant"] or (std_heights is not None)
-        is_piece_full = self._is_full_bar_piece(board, piece, respect_grain)
-        if is_bar_stock and ub.get("is_full_bar_dedicated", False) and not is_piece_full:
+        if not self._can_place_piece_on_used_board(ub, piece, respect_grain):
             return False
 
         is_whole = (board.get("stock_type") == "whole_board")
@@ -625,9 +639,7 @@ class CuttingOptimizer:
             
             # Cerca il miglior rettangolo libero tra le lastre usate esistenti
             for b_idx, ub in enumerate(used_boards):
-                is_bar_stock = ub["board"].get("stock_type") in ["semilavorato_bar", "remnant"] or (std_heights is not None)
-                is_piece_full = self._is_full_bar_piece(ub["board"], piece, respect_grain)
-                if is_bar_stock and ub.get("is_full_bar_dedicated", False) and not is_piece_full:
+                if not self._can_place_piece_on_used_board(ub, piece, respect_grain):
                     continue
 
                 is_whole = (ub["board"].get("stock_type") == "whole_board")
