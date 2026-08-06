@@ -35,25 +35,23 @@ class CuttingOptimizer:
     def _can_place_piece_on_used_board(self, ub, piece, respect_grain):
         board = ub["board"]
         st_w, st_h = board["width"], board["height"]
+        st_bar_width = min(st_w, st_h)
         is_bar_stock = board.get("stock_type") in ["semilavorato_bar", "remnant"] or getattr(self, "is_bar_group", False)
         
         if getattr(self, "bar_strategy", "misura_esatta") == "misura_esatta" and is_bar_stock:
             if ub.get("placed_pieces"):
                 first_p = ub["placed_pieces"][0]
-                # Larghezza W del primo pezzo piazzato sulla barra
-                first_w_dim = min(first_p["w"], first_p["h"])
-                st_w_dim = min(st_w, st_h)
+                first_pw, first_ph = first_p["w"], first_p["h"]
                 
-                # Se la barra ospita un pezzo con larghezza W standard (es. W=597)
-                is_board_standard = (abs(first_w_dim - st_w_dim) <= 1.0)
+                # Se la barra ospita un primo pezzo la cui larghezza W coincide con la larghezza della barra (es. W=597)
+                is_board_standard = (abs(first_pw - st_bar_width) <= 1.0 or abs(first_ph - st_bar_width) <= 1.0)
                 
                 if is_board_standard:
-                    # La larghezza W del nuovo pezzo DEVE coincidere esattamente con la larghezza W della barra!
+                    # La larghezza W del nuovo pezzo DEVE coincidere esattamente con la larghezza della barra (es. W=597)!
                     pw = piece.get("width_raw", piece.get("width", 0.0))
                     ph = piece.get("height_raw", piece.get("height", 0.0))
-                    piece_w_dim = min(pw, ph)
                     
-                    is_piece_matching = (abs(piece_w_dim - first_w_dim) <= 1.0)
+                    is_piece_matching = (abs(pw - st_bar_width) <= 1.0 or abs(ph - st_bar_width) <= 1.0)
                     if not is_piece_matching:
                         return False
         return True
@@ -74,9 +72,8 @@ class CuttingOptimizer:
                 for w, h in orientations:
                     fits = (min(w, h) <= min(st_w, st_h) + 1e-2) and (max(w, h) <= max(st_w, st_h) + 1e-2)
                     if fits:
-                        if self._is_height_allowed(board, h, std_heights, is_used=False):
-                            if abs(min(w, h) - min(st_w, st_h)) <= 1.0 or abs(max(w, h) - min(st_w, st_h)) <= 1.0:
-                                return idx, (w, h)
+                        if abs(min(w, h) - min(st_w, st_h)) <= 1.0 or abs(max(w, h) - min(st_w, st_h)) <= 1.0:
+                            return idx, (w, h)
 
         # 2. Se non c'è match esatto (fuori misura) o strategia == massimo_recupero, scegli la barra con lo sfrido minimo
         best_idx = -1
@@ -91,12 +88,11 @@ class CuttingOptimizer:
             for w, h in orientations:
                 fits = (min(w, h) <= min(st_w, st_h) + 1e-2) and (max(w, h) <= max(st_w, st_h) + 1e-2)
                 if fits:
-                    if self._is_height_allowed(board, h, std_heights, is_used=False):
-                        waste = (st_w * st_h) - (w * h)
-                        if waste < best_waste:
-                            best_waste = waste
-                            best_idx = idx
-                            best_orient = (w, h)
+                    waste = (st_w * st_h) - (w * h)
+                    if waste < best_waste:
+                        best_waste = waste
+                        best_idx = idx
+                        best_orient = (w, h)
 
         return best_idx, best_orient
 
