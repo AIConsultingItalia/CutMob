@@ -511,10 +511,13 @@ class CuttingOptimizer:
             
             # Estrarre i semilavorati per l'algoritmo shelf
             ub["new_semilavorati"] = []
+            req_min = min(min_semi_size[0], min_semi_size[1])
+            req_max = max(min_semi_size[0], min_semi_size[1])
+            
             for shelf in ub["shelves"]:
                 w_res = bw - shelf["width_used"]
                 h_res = shelf["height"]
-                if w_res >= min_semi_size[0] and h_res >= min_semi_size[1]:
+                if min(w_res, h_res) >= req_min - 1e-2 and max(w_res, h_res) >= req_max - 1e-2:
                     ub["new_semilavorati"].append({
                         "x": shelf["width_used"],
                         "y": shelf["y"],
@@ -531,7 +534,7 @@ class CuttingOptimizer:
                 current_y = last_shelf["y"] + last_shelf["height"] + self.kerf
             
             h_res = bh - current_y
-            if bw >= min_semi_size[0] and h_res >= min_semi_size[1]:
+            if min(bw, h_res) >= req_min - 1e-2 and max(bw, h_res) >= req_max - 1e-2:
                 ub["new_semilavorati"].append({
                     "x": 0.0,
                     "y": current_y,
@@ -799,8 +802,11 @@ class CuttingOptimizer:
                             })
             
             ub["new_semilavorati"] = []
+            req_min = min(min_semi_size[0], min_semi_size[1])
+            req_max = max(min_semi_size[0], min_semi_size[1])
+            
             for r in ub["free_rectangles"]:
-                if r["w"] >= min_semi_size[0] and r["h"] >= min_semi_size[1]:
+                if min(r["w"], r["h"]) >= req_min - 1e-2 and max(r["w"], r["h"]) >= req_max - 1e-2:
                     ub["new_semilavorati"].append({
                         "x": r["x"],
                         "y": r["y"],
