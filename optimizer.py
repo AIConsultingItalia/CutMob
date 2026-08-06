@@ -554,6 +554,8 @@ class CuttingOptimizer:
         board = ub["board"]
         bw = board["width"]
         bh = board["height"]
+        is_bar_stock = board.get("stock_type") in ["semilavorato_bar", "remnant"] or getattr(self, "is_bar_group", False)
+        is_piece_full = self._is_full_bar_piece(board, piece, respect_grain)
         
         if not self._can_place_piece_on_used_board(ub, piece, respect_grain):
             return False
