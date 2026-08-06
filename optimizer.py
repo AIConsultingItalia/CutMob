@@ -40,14 +40,20 @@ class CuttingOptimizer:
         if getattr(self, "bar_strategy", "misura_esatta") == "misura_esatta" and is_bar_stock:
             if ub.get("placed_pieces"):
                 first_p = ub["placed_pieces"][0]
-                first_w, first_h = first_p["w"], first_p["h"]
+                # Larghezza W del primo pezzo piazzato sulla barra
+                first_w_dim = min(first_p["w"], first_p["h"])
+                st_w_dim = min(st_w, st_h)
                 
-                is_board_standard = (abs(min(first_w, first_h) - min(st_w, st_h)) <= 1.0)
+                # Se la barra ospita un pezzo con larghezza W standard (es. W=597)
+                is_board_standard = (abs(first_w_dim - st_w_dim) <= 1.0)
                 
                 if is_board_standard:
+                    # La larghezza W del nuovo pezzo DEVE coincidere esattamente con la larghezza W della barra!
                     pw = piece.get("width_raw", piece.get("width", 0.0))
                     ph = piece.get("height_raw", piece.get("height", 0.0))
-                    is_piece_matching = (abs(min(pw, ph) - min(first_w, first_h)) <= 1.0)
+                    piece_w_dim = min(pw, ph)
+                    
+                    is_piece_matching = (abs(piece_w_dim - first_w_dim) <= 1.0)
                     if not is_piece_matching:
                         return False
         return True
